@@ -106,7 +106,7 @@ def _match_speaker(embedding, voice_repo: dict) -> tuple[str | None, float]:
     image=image,
     volumes={"/models": model_volume, "/voice-repo": voice_repo_volume},
     secrets=[modal.Secret.from_name("huggingface")],
-    timeout=600,
+    timeout=1200,
 )
 def transcribe_audio(audio_bytes: bytes, filename: str) -> dict:
     import os
