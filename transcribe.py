@@ -28,7 +28,7 @@ def collect_from_folder(folder: Path) -> list[Path]:
 
 
 def main():
-    from modal_app import transcribe_audio
+    from modal_app import app, transcribe_audio
 
     parser = argparse.ArgumentParser(
         description="Transcribe audio files using Modal + faster-whisper large-v3"
@@ -73,16 +73,17 @@ def main():
     bytes_list = [p.read_bytes() for p in valid_files]
     name_list = [p.name for p in valid_files]
 
-    for file_path, result in zip(valid_files, transcribe_audio.map(bytes_list, name_list)):
-        out_path = resolve_output_path(file_path, args.output_dir)
-        try:
-            if result["ok"]:
-                out_path.write_text(json.dumps(result["result"], indent=2, ensure_ascii=False), encoding="utf-8")
-                print(f"[done] {file_path.name} → {out_path}")
-            else:
-                print(f"[error] {file_path.name}: {result['error']}")
-        except Exception as exc:
-            print(f"[error] {file_path.name}: {exc}")
+    with app.run():
+        for file_path, result in zip(valid_files, transcribe_audio.map(bytes_list, name_list)):
+            out_path = resolve_output_path(file_path, args.output_dir)
+            try:
+                if result["ok"]:
+                    out_path.write_text(json.dumps(result["result"], indent=2, ensure_ascii=False), encoding="utf-8")
+                    print(f"[done] {file_path.name} → {out_path}")
+                else:
+                    print(f"[error] {file_path.name}: {result['error']}")
+            except Exception as exc:
+                print(f"[error] {file_path.name}: {exc}")
 
 
 if __name__ == "__main__":
