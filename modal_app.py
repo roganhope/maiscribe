@@ -39,9 +39,11 @@ def transcribe_audio(audio_bytes: bytes, filename: str) -> dict:
     model = _load_model()
     suffix = os.path.splitext(filename)[1] or ".audio"
 
+    tmp_path = None
+
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
-        f.write(audio_bytes)
         tmp_path = f.name
+        f.write(audio_bytes)
 
     try:
         segments_iter, info = model.transcribe(
@@ -65,4 +67,8 @@ def transcribe_audio(audio_bytes: bytes, filename: str) -> dict:
     except Exception as e:
         return {"ok": False, "error": str(e)}
     finally:
-        os.unlink(tmp_path)
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
