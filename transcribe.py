@@ -46,16 +46,20 @@ def main():
     if not valid_files:
         sys.exit(1)
 
+    # All files are read into memory before dispatching — fine for typical audio file sizes.
     bytes_list = [p.read_bytes() for p in valid_files]
     name_list = [p.name for p in valid_files]
 
     for file_path, result in zip(valid_files, transcribe_audio.map(bytes_list, name_list)):
         out_path = resolve_output_path(file_path, args.output_dir)
-        if result["ok"]:
-            out_path.write_text(json.dumps(result["result"], indent=2))
-            print(f"[done] {file_path.name} → {out_path}")
-        else:
-            print(f"[error] {file_path.name}: {result['error']}")
+        try:
+            if result["ok"]:
+                out_path.write_text(json.dumps(result["result"], indent=2, ensure_ascii=False), encoding="utf-8")
+                print(f"[done] {file_path.name} → {out_path}")
+            else:
+                print(f"[error] {file_path.name}: {result['error']}")
+        except Exception as exc:
+            print(f"[error] {file_path.name}: {exc}")
 
 
 if __name__ == "__main__":
