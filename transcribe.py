@@ -8,6 +8,7 @@ from pathlib import Path
 AUDIO_EXTENSIONS = {".mp3", ".mp4", ".m4a", ".wav", ".flac", ".ogg", ".aac", ".opus"}
 
 OUTBOX_DIR = Path(__file__).parent / "outbox"
+INBOX_DIR = Path(__file__).parent / "inbox"
 
 
 def make_outbox_folder(input_path: Path) -> Path:
@@ -15,6 +16,18 @@ def make_outbox_folder(input_path: Path) -> Path:
     folder = OUTBOX_DIR / f"{input_path.stem}_{timestamp}"
     folder.mkdir(parents=True, exist_ok=True)
     return folder
+
+
+def write_error_log(file_path: Path, error: str, traceback: str | None = None):
+    errors_path = INBOX_DIR / "errors.txt"
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines = [f"[{timestamp}] {file_path.name}", f"  {error}"]
+    if traceback:
+        for line in traceback.strip().splitlines():
+            lines.append(f"    {line}")
+    lines.append("")
+    with errors_path.open("a", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
 
 
 def validate_files(paths: list[Path]) -> tuple[list[Path], list[str]]:
@@ -195,15 +208,18 @@ def main():
                         encoding="utf-8",
                     )
                     shutil.copy2(file_path, out_folder / file_path.name)
+                    file_path.unlink()
                     speakers = {s.get("speaker") for s in result["result"]["segments"]}
                     unknown = [s for s in speakers if s and s.startswith("SPEAKER_")]
                     label = f" (unknown speakers: {', '.join(sorted(unknown))})" if unknown else ""
                     print(f"[done] {file_path.name} → {out_folder}{label}")
                 else:
+                    write_error_log(file_path, result["error"], result.get("traceback"))
                     print(f"[error] {file_path.name}: {result['error']}")
                     if result.get("traceback"):
                         print(result["traceback"])
             except Exception as exc:
+                write_error_log(file_path, str(exc))
                 print(f"[error] {file_path.name}: {exc}")
 
 
