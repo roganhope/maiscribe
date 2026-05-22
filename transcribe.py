@@ -22,8 +22,6 @@ def validate_files(paths: list[Path]) -> tuple[list[Path], list[str]]:
 
 
 def main():
-    from dotenv import load_dotenv
-    load_dotenv()
     from modal_app import transcribe_audio
 
     parser = argparse.ArgumentParser(
