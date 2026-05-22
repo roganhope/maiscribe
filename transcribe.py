@@ -1,15 +1,20 @@
 import argparse
 import json
+import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 
 AUDIO_EXTENSIONS = {".mp3", ".mp4", ".m4a", ".wav", ".flac", ".ogg", ".aac", ".opus"}
 
+OUTBOX_DIR = Path(__file__).parent / "outbox"
 
-def resolve_output_path(input_path: Path, output_dir: Path | None) -> Path:
-    if output_dir is not None:
-        return output_dir / f"{input_path.stem}.json"
-    return input_path.parent / f"{input_path.stem}.json"
+
+def make_outbox_folder(input_path: Path) -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    folder = OUTBOX_DIR / f"{input_path.stem}_{timestamp}"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
 
 
 def validate_files(paths: list[Path]) -> tuple[list[Path], list[str]]:
@@ -134,10 +139,6 @@ def main():
         help="Folder of audio files to transcribe",
     )
     parser.add_argument(
-        "--output-dir", type=Path, default=None,
-        help="Directory for JSON output (default: same dir as each input file)",
-    )
-    parser.add_argument(
         "--enroll", type=Path, metavar="JSON",
         help="Label unknown speakers in a transcription JSON and save to voice repo",
     )
@@ -173,9 +174,6 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    if args.output_dir is not None:
-        args.output_dir.mkdir(parents=True, exist_ok=True)
-
     valid_files, errors = validate_files(file_paths)
     for e in errors:
         print(e)
@@ -188,17 +186,19 @@ def main():
 
     with app.run():
         for file_path, result in zip(valid_files, transcribe_audio.map(bytes_list, name_list)):
-            out_path = resolve_output_path(file_path, args.output_dir)
             try:
                 if result["ok"]:
-                    out_path.write_text(
+                    out_folder = make_outbox_folder(file_path)
+                    json_path = out_folder / f"{file_path.stem}.json"
+                    json_path.write_text(
                         json.dumps(result["result"], indent=2, ensure_ascii=False),
                         encoding="utf-8",
                     )
+                    shutil.copy2(file_path, out_folder / file_path.name)
                     speakers = {s.get("speaker") for s in result["result"]["segments"]}
                     unknown = [s for s in speakers if s and s.startswith("SPEAKER_")]
                     label = f" (unknown speakers: {', '.join(sorted(unknown))})" if unknown else ""
-                    print(f"[done] {file_path.name} → {out_path}{label}")
+                    print(f"[done] {file_path.name} → {out_folder}{label}")
                 else:
                     print(f"[error] {file_path.name}: {result['error']}")
                     if result.get("traceback"):
