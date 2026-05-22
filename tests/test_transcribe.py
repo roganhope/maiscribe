@@ -53,6 +53,8 @@ def test_validate_files_mixed(tmp_path):
     valid, errors = validate_files([good, bad])
     assert valid == [good]
     assert len(errors) == 1
+    assert "[error]" in errors[0]
+    assert "bad.mp3" in errors[0]
 
 
 def test_validate_files_all_invalid(tmp_path):
@@ -61,3 +63,7 @@ def test_validate_files_all_invalid(tmp_path):
     valid, errors = validate_files([f1, f2])
     assert valid == []
     assert len(errors) == 2
+    assert "[error]" in errors[0]
+    assert "a.mp3" in errors[0]
+    assert "[error]" in errors[1]
+    assert "b.mp3" in errors[1]
