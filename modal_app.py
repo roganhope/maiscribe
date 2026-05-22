@@ -5,7 +5,10 @@ app = modal.App("audio-transcription")
 model_volume = modal.Volume.from_name("whisper-models", create_if_missing=True)
 
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.from_registry(
+        "nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04",
+        add_python="3.11",
+    )
     .apt_install("ffmpeg")
     .pip_install("faster-whisper")
 )
