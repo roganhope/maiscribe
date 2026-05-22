@@ -1,0 +1,4 @@
+modal
+faster-whisper
+python-dotenv
+pytest
