@@ -1,0 +1,62 @@
+import argparse
+import json
+import sys
+from pathlib import Path
+
+
+def resolve_output_path(input_path: Path, output_dir: Path | None) -> Path:
+    if output_dir is not None:
+        return output_dir / f"{input_path.stem}.json"
+    return input_path.parent / f"{input_path.stem}.json"
+
+
+def validate_files(paths: list[Path]) -> tuple[list[Path], list[str]]:
+    valid = []
+    errors = []
+    for p in paths:
+        if not p.exists() or not p.is_file():
+            errors.append(f"[error] {p.name}: file not found")
+        else:
+            valid.append(p)
+    return valid, errors
+
+
+def main():
+    from dotenv import load_dotenv
+    load_dotenv()
+    from modal_app import transcribe_audio
+
+    parser = argparse.ArgumentParser(
+        description="Transcribe audio files using Modal + faster-whisper large-v3"
+    )
+    parser.add_argument("files", nargs="+", type=Path, help="Audio files to transcribe")
+    parser.add_argument(
+        "--output-dir", type=Path, default=None,
+        help="Directory for JSON output (default: same directory as each input file)",
+    )
+    args = parser.parse_args()
+
+    if args.output_dir is not None:
+        args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    valid_files, errors = validate_files(args.files)
+    for e in errors:
+        print(e)
+
+    if not valid_files:
+        sys.exit(1)
+
+    bytes_list = [p.read_bytes() for p in valid_files]
+    name_list = [p.name for p in valid_files]
+
+    for file_path, result in zip(valid_files, transcribe_audio.map(bytes_list, name_list)):
+        out_path = resolve_output_path(file_path, args.output_dir)
+        if result["ok"]:
+            out_path.write_text(json.dumps(result["result"], indent=2))
+            print(f"[done] {file_path.name} → {out_path}")
+        else:
+            print(f"[error] {file_path.name}: {result['error']}")
+
+
+if __name__ == "__main__":
+    main()
