@@ -24,25 +24,139 @@ def validate_files(paths: list[Path]) -> tuple[list[Path], list[str]]:
 
 
 def collect_from_folder(folder: Path) -> list[Path]:
-    return sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in AUDIO_EXTENSIONS)
+    return sorted(
+        p for p in folder.iterdir()
+        if p.is_file() and p.suffix.lower() in AUDIO_EXTENSIONS
+    )
+
+
+def run_enroll(json_path: Path):
+    from modal_app import app, enroll_speaker
+
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    embeddings: dict = data.get("speaker_embeddings", {})
+    segments: list = data.get("segments", [])
+
+    if not embeddings:
+        print("[error] no speaker embeddings found — re-transcribe to generate them")
+        sys.exit(1)
+
+    # Group sample lines by speaker — prefer longer, unique lines over short repeats
+    by_speaker: dict[str, list[str]] = {}
+    seen: dict[str, set] = {}
+    for seg in segments:
+        spk = seg.get("speaker", "UNKNOWN")
+        text = seg["text"].strip()
+        if spk not in seen:
+            seen[spk] = set()
+        if text and text not in seen[spk] and len(text) > 20:
+            by_speaker.setdefault(spk, []).append(text)
+            seen[spk].add(text)
+
+    # All unlabeled speakers — from segments (not just those with embeddings)
+    all_speakers = sorted({
+        seg.get("speaker", "UNKNOWN")
+        for seg in segments
+        if seg.get("speaker", "UNKNOWN").startswith("SPEAKER_")
+    })
+    already_named = [s for s in embeddings if not s.startswith("SPEAKER_")]
+
+    if already_named:
+        print(f"Already recognized: {', '.join(already_named)}")
+
+    if not all_speakers:
+        print("All speakers already labeled.")
+        return
+
+    # Collect names; track the mapping as we go
+    label_map: dict[str, str] = {}
+    to_enroll: list[tuple[str, list[float]]] = []
+    for speaker in all_speakers:
+        print(f"\n--- {speaker} ---")
+        for line in by_speaker.get(speaker, [])[:3]:
+            print(f'  "{line}"')
+        name = input(f"Name for {speaker} (Enter to skip): ").strip()
+        if name:
+            label_map[speaker] = name
+            if speaker in embeddings:
+                to_enroll.append((name, embeddings[speaker]))
+            else:
+                print(f"  (no voice embedding — will rename in JSON but won't auto-recognize in future files)")
+
+    if not to_enroll:
+        print("Nothing enrolled.")
+        return
+
+    print()
+    with app.run():
+        for name, emb in to_enroll:
+            result = enroll_speaker.remote(name, emb)
+            if result["ok"]:
+                print(f"[enrolled] {name}")
+            else:
+                print(f"[error] failed to enroll {name}")
+
+    # Rewrite the JSON with the new speaker labels
+    data["segments"] = [
+        {**seg, "speaker": label_map.get(seg.get("speaker", ""), seg.get("speaker", "UNKNOWN"))}
+        for seg in segments
+    ]
+    data["speaker_embeddings"] = {
+        label_map.get(spk, spk): emb for spk, emb in embeddings.items()
+    }
+    json_path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    print(f"[updated] {json_path}")
+
+
+def run_list_speakers():
+    from modal_app import app, list_speakers
+    with app.run():
+        names = list_speakers.remote()
+    if names:
+        print("Known speakers:")
+        for name in sorted(names):
+            print(f"  {name}")
+    else:
+        print("No speakers enrolled yet.")
 
 
 def main():
     from modal_app import app, transcribe_audio
 
     parser = argparse.ArgumentParser(
-        description="Transcribe audio files using Modal + faster-whisper large-v3"
+        description="Transcribe audio files using Modal + faster-whisper + pyannote diarization"
     )
     parser.add_argument("files", nargs="*", type=Path, help="Audio files to transcribe")
     parser.add_argument(
         "--folder", type=Path, default=None,
-        help="Folder of audio files to transcribe (all supported formats)",
+        help="Folder of audio files to transcribe",
     )
     parser.add_argument(
         "--output-dir", type=Path, default=None,
-        help="Directory for JSON output (default: same directory as each input file)",
+        help="Directory for JSON output (default: same dir as each input file)",
+    )
+    parser.add_argument(
+        "--enroll", type=Path, metavar="JSON",
+        help="Label unknown speakers in a transcription JSON and save to voice repo",
+    )
+    parser.add_argument(
+        "--list-speakers", action="store_true",
+        help="List all enrolled speakers in the voice repo",
     )
     args = parser.parse_args()
+
+    if args.list_speakers:
+        run_list_speakers()
+        return
+
+    if args.enroll is not None:
+        if not args.enroll.exists():
+            print(f"[error] file not found: {args.enroll}")
+            sys.exit(1)
+        run_enroll(args.enroll)
+        return
 
     if args.folder is not None:
         if not args.folder.is_dir():
@@ -69,7 +183,6 @@ def main():
     if not valid_files:
         sys.exit(1)
 
-    # All files are read into memory before dispatching — fine for typical audio file sizes.
     bytes_list = [p.read_bytes() for p in valid_files]
     name_list = [p.name for p in valid_files]
 
@@ -78,10 +191,18 @@ def main():
             out_path = resolve_output_path(file_path, args.output_dir)
             try:
                 if result["ok"]:
-                    out_path.write_text(json.dumps(result["result"], indent=2, ensure_ascii=False), encoding="utf-8")
-                    print(f"[done] {file_path.name} → {out_path}")
+                    out_path.write_text(
+                        json.dumps(result["result"], indent=2, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
+                    speakers = {s.get("speaker") for s in result["result"]["segments"]}
+                    unknown = [s for s in speakers if s and s.startswith("SPEAKER_")]
+                    label = f" (unknown speakers: {', '.join(sorted(unknown))})" if unknown else ""
+                    print(f"[done] {file_path.name} → {out_path}{label}")
                 else:
                     print(f"[error] {file_path.name}: {result['error']}")
+                    if result.get("traceback"):
+                        print(result["traceback"])
             except Exception as exc:
                 print(f"[error] {file_path.name}: {exc}")
 
