@@ -1,4 +1,7 @@
-from summarize import format_transcript, render_markdown
+import json
+from unittest.mock import patch, MagicMock
+
+from summarize import format_transcript, render_markdown, call_claude
 
 
 def test_format_transcript_multiple_speakers():
@@ -113,3 +116,33 @@ def test_render_markdown_solo():
     # No action items or participants section
     assert "## Action Items" not in md
     assert "## Participants" not in md
+
+
+def test_call_claude_returns_parsed_json(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-fake")
+    mock_response = {
+        "recording_type": "meeting",
+        "participants": ["Alice", "Bob"],
+        "duration_minutes": 10,
+        "sections": [
+            {"type": "tldr", "title": "TL;DR", "content": "A short meeting."}
+        ],
+    }
+    mock_message = MagicMock()
+    mock_message.content = [MagicMock(text=json.dumps(mock_response))]
+
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = mock_message
+
+    with patch("summarize.anthropic.Anthropic", return_value=mock_client):
+        result = call_claude("Alice: Hello\nBob: Hi", 120.0)
+
+    assert result["recording_type"] == "meeting"
+    assert result["participants"] == ["Alice", "Bob"]
+    assert len(result["sections"]) == 1
+
+
+def test_call_claude_returns_none_on_missing_key(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    result = call_claude("Alice: Hello", 60.0)
+    assert result is None
