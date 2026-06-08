@@ -18,12 +18,15 @@ export interface QueueItem {
   id: string
   filePath: string
   fileName: string
-  status: 'pending' | 'processing' | 'done' | 'error'
+  status: 'staged' | 'pending' | 'processing' | 'done' | 'error'
   progress: string | null
+  progressPercent: number | null
   outputPath: string | null
   error: string | null
   addedAt: number
+  startedAt: number | null
   completedAt: number | null
+  estimatedDurationSec: number | null
 }
 
 export type QueueState = QueueItem[]
@@ -32,6 +35,7 @@ export interface ElectronAPI {
   queue: {
     onState: (callback: (state: QueueState) => void) => () => void
     add: (filePaths: string[]) => void
+    start: () => void
     retry: (id: string) => void
     cancel: () => void
   }

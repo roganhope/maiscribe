@@ -1,5 +1,6 @@
 import { spawn, ChildProcess } from 'child_process'
 import { join } from 'path'
+import { mkdirSync } from 'fs'
 import { getConfig, getProjectRoot } from './config'
 import { getEnvVars } from './env'
 
@@ -19,6 +20,14 @@ export function runPipeline(filePath: string, callbacks: PipelineCallbacks): voi
   const envVars = getEnvVars()
 
   const args = [transcriptPath, filePath]
+  if (config?.basePath) {
+    const outbox = join(config.basePath, 'outbox')
+    mkdirSync(outbox, { recursive: true })
+    args.push('--outbox', outbox)
+  }
+  if (config?.pipeline.deleteAfterProcessing === false) {
+    args.push('--keep')
+  }
   if (config?.pipeline.autoSummarize === false) {
     args.push('--no-summary')
   }
@@ -39,6 +48,8 @@ export function runPipeline(filePath: string, callbacks: PipelineCallbacks): voi
         callbacks.onDone(outputPath)
       } else if (line.startsWith('[error]')) {
         callbacks.onError(line.replace('[error] ', ''))
+      } else if (line.startsWith('[step] ')) {
+        callbacks.onProgress(line.replace('[step] ', ''))
       } else {
         callbacks.onProgress(line)
       }

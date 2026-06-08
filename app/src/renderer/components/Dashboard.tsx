@@ -22,9 +22,20 @@ export function Dashboard() {
   }
 
   const isProcessing = queue.some(i => i.status === 'processing')
+  const hasStaged = queue.some(i => i.status === 'staged')
+
+  function handleStart() {
+    window.api.queue.start()
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && hasStaged && !isProcessing) {
+      handleStart()
+    }
+  }
 
   return (
-    <div className="flex flex-col gap-6 p-6 h-full">
+    <div className="flex flex-col gap-6 p-6 h-full" tabIndex={0} onKeyDown={handleKeyDown}>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-100">Audio Transcription</h1>
         <div className="flex items-center gap-3">
@@ -36,6 +47,14 @@ export function Dashboard() {
           >
             {watching ? 'Watching' : 'Watch off'}
           </button>
+          {hasStaged && !isProcessing && (
+            <button
+              onClick={handleStart}
+              className="text-xs px-3 py-1 rounded bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 font-medium"
+            >
+              Start
+            </button>
+          )}
           {isProcessing && (
             <button
               onClick={() => window.api.queue.cancel()}

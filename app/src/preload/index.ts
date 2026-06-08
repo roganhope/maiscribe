@@ -9,6 +9,7 @@ const api: ElectronAPI = {
       return () => { ipcRenderer.removeListener('queue:state', handler) }
     },
     add: (filePaths) => ipcRenderer.send('queue:add', filePaths),
+    start: () => ipcRenderer.send('queue:start'),
     retry: (id) => ipcRenderer.send('queue:retry', id),
     cancel: () => ipcRenderer.send('pipeline:cancel'),
   },

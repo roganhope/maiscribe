@@ -165,6 +165,14 @@ def main():
         "--no-summary", action="store_true",
         help="Skip automatic summarization after transcription",
     )
+    parser.add_argument(
+        "--keep", action="store_true",
+        help="Keep the original audio file after processing (don't delete)",
+    )
+    parser.add_argument(
+        "--outbox", type=Path, default=None,
+        help="Custom output directory (defaults to ./outbox next to this script)",
+    )
     args = parser.parse_args()
 
     if args.summarize is not None:
@@ -185,6 +193,11 @@ def main():
             sys.exit(1)
         run_enroll(args.enroll)
         return
+
+    global OUTBOX_DIR
+    if args.outbox is not None:
+        OUTBOX_DIR = args.outbox
+        OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
 
     from modal_app import app, transcribe_audio
 
@@ -216,6 +229,7 @@ def main():
     with app.run():
         for file_path, result in zip(valid_files, transcribe_audio.map(bytes_list, name_list)):
             try:
+                print(f"[step] Transcribing", flush=True)
                 if result["ok"]:
                     out_folder = make_outbox_folder(file_path)
                     json_path = out_folder / f"{file_path.stem}.json"
@@ -224,12 +238,14 @@ def main():
                         encoding="utf-8",
                     )
                     shutil.copy2(file_path, out_folder / file_path.name)
-                    file_path.unlink()
+                    if not args.keep:
+                        file_path.unlink()
                     speakers = {s.get("speaker") for s in result["result"]["segments"]}
                     unknown = [s for s in speakers if s and s.startswith("SPEAKER_")]
                     label = f" (unknown speakers: {', '.join(sorted(unknown))})" if unknown else ""
                     print(f"[done] {file_path.name} → {out_folder}{label}")
                     if not args.no_summary:
+                        print(f"[step] Summarizing", flush=True)
                         from summarize import summarize_file
                         summarize_file(json_path)
                 else:
