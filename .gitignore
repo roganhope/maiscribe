@@ -9,3 +9,4 @@ app/out/
 app/node_modules/
 app/dist/
 config.json
+.DS_Store
