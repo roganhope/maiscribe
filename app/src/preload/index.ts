@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { ElectronAPI } from '../shared/types'
 
 const api: ElectronAPI = {
@@ -29,6 +29,9 @@ const api: ElectronAPI = {
   dialog: {
     selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
     selectFiles: () => ipcRenderer.invoke('dialog:selectFiles'),
+  },
+  file: {
+    getPath: (file: File) => webUtils.getPathForFile(file),
   },
 }
 

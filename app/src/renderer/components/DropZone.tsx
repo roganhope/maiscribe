@@ -7,7 +7,7 @@ export function DropZone() {
     e.preventDefault()
     setDragOver(false)
     const files = Array.from(e.dataTransfer.files)
-    const paths = files.map(f => f.path).filter(Boolean)
+    const paths = files.map(f => window.api.file.getPath(f)).filter(Boolean)
     if (paths.length > 0) {
       window.api.queue.add(paths)
     }
