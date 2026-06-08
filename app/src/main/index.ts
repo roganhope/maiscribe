@@ -4,6 +4,7 @@ import { registerConfigIpc } from './config'
 import { registerEnvIpc } from './env'
 import { registerQueueIpc } from './queue'
 import { registerWatcherIpc, initWatcher } from './watcher'
+import { registerHistoryIpc, registerAudioProtocol } from './history'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -33,6 +34,8 @@ app.whenReady().then(() => {
   registerEnvIpc()
   registerQueueIpc()
   registerWatcherIpc()
+  registerHistoryIpc()
+  registerAudioProtocol()
 
   ipcMain.on('shell:openPath', (_event, path: string) => {
     shell.showItemInFolder(path)

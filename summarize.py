@@ -10,11 +10,17 @@ SYSTEM_PROMPT = """You are a meeting/recording summarizer. You will receive a sp
 
 Analyze the transcript and return a JSON object with this structure:
 {
+  "title": "Short descriptive title (under 10 words)",
   "recording_type": "meeting" or "solo",
   "participants": ["list of speaker names/labels"],
   "duration_minutes": <integer>,
   "sections": [...]
 }
+
+Rules for title:
+- Under 10 words, capturing the main topic or purpose
+- For meetings: reference the topic or key decision
+- For solo recordings: reference what the speaker is doing/discussing
 
 Rules for sections:
 - Include ONLY sections that are relevant to the content

@@ -14,7 +14,7 @@ export function SetupWizard({ onComplete }: Props) {
   const [modalTokenId, setModalTokenId] = useState('')
   const [modalTokenSecret, setModalTokenSecret] = useState('')
   const [claudeApiKey, setClaudeApiKey] = useState('')
-  const [deleteAfter, setDeleteAfter] = useState(true)
+  const [audioHandling, setAudioHandling] = useState<'store' | 'store-and-delete' | 'delete'>('store')
   const [autoWatch, setAutoWatch] = useState(true)
   const [autoSummarize, setAutoSummarize] = useState(true)
 
@@ -29,7 +29,7 @@ export function SetupWizard({ onComplete }: Props) {
       basePath,
       pythonPath,
       pipeline: {
-        deleteAfterProcessing: deleteAfter,
+        audioHandling,
         autoWatch,
         autoSummarize,
       },
@@ -160,15 +160,18 @@ export function SetupWizard({ onComplete }: Props) {
           <div>
             <h2 className="text-lg font-semibold mb-4">Pipeline Options</h2>
             <div className="flex flex-col gap-4">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={deleteAfter}
-                  onChange={(e) => setDeleteAfter(e.target.checked)}
-                  className="accent-accent-500"
-                />
-                <span className="text-sm">Delete source file after processing</span>
-              </label>
+              <div>
+                <label className="text-sm text-gray-400">Audio file handling</label>
+                <select
+                  value={audioHandling}
+                  onChange={(e) => setAudioHandling(e.target.value as any)}
+                  className="w-full bg-gray-700 rounded px-3 py-2 text-sm mt-1 text-gray-200"
+                >
+                  <option value="store">Store in outbox (keep original)</option>
+                  <option value="store-and-delete">Store in outbox (delete original)</option>
+                  <option value="delete">Delete after processing</option>
+                </select>
+              </div>
               <label className="flex items-center gap-3">
                 <input
                   type="checkbox"

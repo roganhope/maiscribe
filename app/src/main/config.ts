@@ -13,7 +13,13 @@ export function getConfig(): AppConfig | null {
   const path = configPath()
   if (!existsSync(path)) return null
   const raw = readFileSync(path, 'utf-8')
-  return JSON.parse(raw) as AppConfig
+  const config = JSON.parse(raw)
+  if ('deleteAfterProcessing' in (config.pipeline || {})) {
+    config.pipeline.audioHandling = config.pipeline.deleteAfterProcessing ? 'delete' : 'store'
+    delete config.pipeline.deleteAfterProcessing
+    writeFileSync(path, JSON.stringify(config, null, 2), 'utf-8')
+  }
+  return config as AppConfig
 }
 
 export function setConfig(config: AppConfig): void {

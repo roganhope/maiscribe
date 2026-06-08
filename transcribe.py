@@ -166,8 +166,9 @@ def main():
         help="Skip automatic summarization after transcription",
     )
     parser.add_argument(
-        "--keep", action="store_true",
-        help="Keep the original audio file after processing (don't delete)",
+        "--audio-handling", choices=["store", "store-and-delete", "delete"],
+        default="delete",
+        help="What to do with the audio file after processing: store (copy to outbox), store-and-delete (move to outbox), delete (remove)",
     )
     parser.add_argument(
         "--outbox", type=Path, default=None,
@@ -237,8 +238,11 @@ def main():
                         json.dumps(result["result"], indent=2, ensure_ascii=False),
                         encoding="utf-8",
                     )
-                    shutil.copy2(file_path, out_folder / file_path.name)
-                    if not args.keep:
+                    if args.audio_handling == 'store':
+                        shutil.copy2(file_path, out_folder / file_path.name)
+                    elif args.audio_handling == 'store-and-delete':
+                        shutil.move(str(file_path), str(out_folder / file_path.name))
+                    else:
                         file_path.unlink()
                     speakers = {s.get("speaker") for s in result["result"]["segments"]}
                     unknown = [s for s in speakers if s and s.startswith("SPEAKER_")]

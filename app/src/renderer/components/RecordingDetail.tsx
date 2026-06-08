@@ -1,0 +1,99 @@
+import { useState, useEffect } from 'react'
+import type { RecordingDetail as RecordingDetailType } from '../../shared/types'
+import { AudioPlayer } from './AudioPlayer'
+import { SummaryView } from './SummaryView'
+import { TranscriptView } from './TranscriptView'
+
+interface Props {
+  recording: RecordingDetailType
+  onUpdateTitle: (folderPath: string, title: string) => void
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }) + ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+export function RecordingDetail({ recording, onUpdateTitle }: Props) {
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(recording.title)
+
+  useEffect(() => {
+    setTitleDraft(recording.title)
+    setEditingTitle(false)
+  }, [recording.id])
+
+  function handleTitleSubmit() {
+    const trimmed = titleDraft.trim()
+    if (trimmed && trimmed !== recording.title) {
+      onUpdateTitle(recording.folderPath, trimmed)
+    } else {
+      setTitleDraft(recording.title)
+    }
+    setEditingTitle(false)
+  }
+
+  function handleTitleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') handleTitleSubmit()
+    if (e.key === 'Escape') {
+      setTitleDraft(recording.title)
+      setEditingTitle(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6 p-6 overflow-y-auto h-full">
+      {editingTitle ? (
+        <input
+          type="text"
+          value={titleDraft}
+          onChange={(e) => setTitleDraft(e.target.value)}
+          onBlur={handleTitleSubmit}
+          onKeyDown={handleTitleKeyDown}
+          autoFocus
+          className="text-xl font-bold bg-transparent border border-gray-600 rounded px-2 py-1 text-gray-100 focus:border-accent-400 outline-none"
+        />
+      ) : (
+        <h1
+          onClick={() => setEditingTitle(true)}
+          className="text-xl font-bold text-gray-100 cursor-pointer hover:text-accent-400 transition-colors"
+        >
+          {recording.title}
+        </h1>
+      )}
+
+      <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+        <span>{formatDate(recording.date)}</span>
+        {recording.durationMinutes > 0 && <span>{recording.durationMinutes} min</span>}
+        <span className="capitalize">{recording.recordingType}</span>
+        {recording.participants.length > 0 && (
+          <span>{recording.participants.join(', ')}</span>
+        )}
+      </div>
+
+      {recording.audioFilePath && (
+        <AudioPlayer filePath={recording.audioFilePath} />
+      )}
+
+      {recording.summary.sections.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Summary</h2>
+          <SummaryView sections={recording.summary.sections} />
+        </section>
+      )}
+
+      {recording.transcription.segments.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Transcript</h2>
+          <TranscriptView segments={recording.transcription.segments} />
+        </section>
+      )}
+    </div>
+  )
+}

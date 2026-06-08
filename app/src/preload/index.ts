@@ -21,6 +21,11 @@ const api: ElectronAPI = {
     get: () => ipcRenderer.invoke('env:get'),
     set: (vars) => ipcRenderer.invoke('env:set', vars),
   },
+  history: {
+    list: () => ipcRenderer.invoke('history:list'),
+    get: (folderPath) => ipcRenderer.invoke('history:get', folderPath),
+    updateTitle: (folderPath, title) => ipcRenderer.invoke('history:updateTitle', folderPath, title),
+  },
   watcher: {
     toggle: (enabled) => ipcRenderer.send('watcher:toggle', enabled),
   },

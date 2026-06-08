@@ -3,7 +3,7 @@ export interface AppConfig {
   basePath: string
   pythonPath: string
   pipeline: {
-    deleteAfterProcessing: boolean
+    audioHandling: 'store' | 'store-and-delete' | 'delete'
     autoWatch: boolean
     autoSummarize: boolean
   }
@@ -11,6 +11,47 @@ export interface AppConfig {
     enabled: boolean
     vaultPath: string | null
     outputFolder: string | null
+  }
+}
+
+export interface RecordingListItem {
+  id: string
+  folderPath: string
+  title: string
+  date: string
+  participants: string[]
+  durationMinutes: number
+  recordingType: string
+  hasAudio: boolean
+}
+
+export interface RecordingDetail {
+  id: string
+  folderPath: string
+  title: string
+  date: string
+  participants: string[]
+  durationMinutes: number
+  recordingType: string
+  audioFilePath: string | null
+  summary: {
+    sections: Array<{
+      type: string
+      title: string
+      content?: string
+      items?: any[]
+    }>
+  }
+  transcription: {
+    text: string
+    segments: Array<{
+      start: number
+      end: number
+      text: string
+      speaker: string
+    }>
+    language: string
+    duration: number
   }
 }
 
@@ -46,6 +87,11 @@ export interface ElectronAPI {
   env: {
     get: () => Promise<Record<string, string>>
     set: (vars: Record<string, string>) => Promise<void>
+  }
+  history: {
+    list: () => Promise<RecordingListItem[]>
+    get: (folderPath: string) => Promise<RecordingDetail | null>
+    updateTitle: (folderPath: string, title: string) => Promise<void>
   }
   watcher: {
     toggle: (enabled: boolean) => void

@@ -89,15 +89,18 @@ export function Settings({ onBack }: Props) {
       <section>
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Pipeline</h2>
         <div className="flex flex-col gap-3">
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={draft.pipeline.deleteAfterProcessing}
-              onChange={(e) => setDraft({ ...draft, pipeline: { ...draft.pipeline, deleteAfterProcessing: e.target.checked } })}
-              className="accent-accent-500"
-            />
-            <span className="text-sm">Delete source after processing</span>
-          </label>
+          <div>
+            <label className="text-sm text-gray-400">Audio file handling</label>
+            <select
+              value={draft.pipeline.audioHandling}
+              onChange={(e) => setDraft({ ...draft, pipeline: { ...draft.pipeline, audioHandling: e.target.value as any } })}
+              className="w-full bg-gray-700 rounded px-3 py-2 text-sm mt-1 text-gray-200"
+            >
+              <option value="store">Store in outbox (keep original)</option>
+              <option value="store-and-delete">Store in outbox (delete original)</option>
+              <option value="delete">Delete after processing</option>
+            </select>
+          </div>
           <label className="flex items-center gap-3">
             <input
               type="checkbox"

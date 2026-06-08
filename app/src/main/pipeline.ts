@@ -25,9 +25,8 @@ export function runPipeline(filePath: string, callbacks: PipelineCallbacks): voi
     mkdirSync(outbox, { recursive: true })
     args.push('--outbox', outbox)
   }
-  if (config?.pipeline.deleteAfterProcessing === false) {
-    args.push('--keep')
-  }
+  const audioHandling = config?.pipeline.audioHandling || 'delete'
+  args.push('--audio-handling', audioHandling)
   if (config?.pipeline.autoSummarize === false) {
     args.push('--no-summary')
   }
