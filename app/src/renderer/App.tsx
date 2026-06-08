@@ -39,7 +39,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen">
-      <div className="flex items-center border-b border-gray-700 px-6 pt-2 drag-region">
+      <div className="flex items-center border-b border-gray-700 px-6 pt-8 drag-region">
         <nav className="flex gap-6 no-drag">
           <button
             onClick={() => setTab('process')}
