@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { registerConfigIpc } from './config'
 import { registerEnvIpc } from './env'
+import { registerQueueIpc } from './queue'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -29,6 +30,7 @@ function createWindow() {
 app.whenReady().then(() => {
   registerConfigIpc()
   registerEnvIpc()
+  registerQueueIpc()
 
   ipcMain.on('shell:openPath', (_event, path: string) => {
     shell.showItemInFolder(path)
