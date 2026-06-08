@@ -1,0 +1,74 @@
+import { spawn, ChildProcess } from 'child_process'
+import { join } from 'path'
+import { getConfig, getProjectRoot } from './config'
+import { getEnvVars } from './env'
+
+export interface PipelineCallbacks {
+  onProgress: (line: string) => void
+  onDone: (outputPath: string) => void
+  onError: (message: string) => void
+}
+
+let currentProcess: ChildProcess | null = null
+
+export function runPipeline(filePath: string, callbacks: PipelineCallbacks): void {
+  const config = getConfig()
+  const pythonPath = config?.pythonPath || 'python3'
+  const projectRoot = getProjectRoot()
+  const transcriptPath = join(projectRoot, 'transcribe.py')
+  const envVars = getEnvVars()
+
+  const args = [transcriptPath, filePath]
+  if (config?.pipeline.autoSummarize === false) {
+    args.push('--no-summary')
+  }
+
+  currentProcess = spawn(pythonPath, args, {
+    cwd: projectRoot,
+    env: { ...process.env, ...envVars },
+  })
+
+  let stderr = ''
+
+  currentProcess.stdout?.on('data', (data: Buffer) => {
+    const lines = data.toString().split('\n').filter(Boolean)
+    for (const line of lines) {
+      if (line.startsWith('[done]')) {
+        const match = line.match(/→\s*(.+?)(\s*\(|$)/)
+        const outputPath = match ? match[1].trim() : ''
+        callbacks.onDone(outputPath)
+      } else if (line.startsWith('[error]')) {
+        callbacks.onError(line.replace('[error] ', ''))
+      } else {
+        callbacks.onProgress(line)
+      }
+    }
+  })
+
+  currentProcess.stderr?.on('data', (data: Buffer) => {
+    stderr += data.toString()
+  })
+
+  currentProcess.on('close', (code) => {
+    if (code !== 0 && code !== null) {
+      callbacks.onError(stderr.trim() || `Process exited with code ${code}`)
+    }
+    currentProcess = null
+  })
+
+  // 30 minute timeout
+  setTimeout(() => {
+    if (currentProcess) {
+      currentProcess.kill()
+      callbacks.onError('Pipeline timed out after 30 minutes')
+      currentProcess = null
+    }
+  }, 30 * 60 * 1000)
+}
+
+export function cancelPipeline(): void {
+  if (currentProcess) {
+    currentProcess.kill()
+    currentProcess = null
+  }
+}
