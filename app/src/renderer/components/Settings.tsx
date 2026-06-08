@@ -1,0 +1,135 @@
+import { useState, useEffect } from 'react'
+import type { AppConfig } from '../../shared/types'
+import { useConfig } from '../hooks/useConfig'
+
+interface Props {
+  onBack: () => void
+}
+
+export function Settings({ onBack }: Props) {
+  const { config, saveConfig } = useConfig()
+  const [draft, setDraft] = useState<AppConfig | null>(null)
+  const [envKeys, setEnvKeys] = useState<Record<string, string>>({})
+  const [newEnv, setNewEnv] = useState<Record<string, string>>({})
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (config) setDraft({ ...config })
+    window.api.env.get().then(setEnvKeys)
+  }, [config])
+
+  if (!draft) return null
+
+  async function handleSave() {
+    if (!draft) return
+    await saveConfig(draft)
+    if (Object.values(newEnv).some(Boolean)) {
+      await window.api.env.set(newEnv)
+    }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function selectFolder() {
+    const path = await window.api.dialog.selectDirectory()
+    if (path) setDraft({ ...draft!, basePath: path })
+  }
+
+  return (
+    <div className="p-6 flex flex-col gap-6 h-full overflow-y-auto">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">Settings</h1>
+        <button onClick={onBack} className="text-sm text-gray-400 hover:text-gray-200">
+          ← Back
+        </button>
+      </div>
+
+      <section>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Folders</h2>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={draft.basePath}
+            onChange={(e) => setDraft({ ...draft, basePath: e.target.value })}
+            className="flex-1 bg-gray-700 rounded px-3 py-2 text-sm"
+          />
+          <button onClick={selectFolder} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm">
+            Browse
+          </button>
+        </div>
+        <div className="mt-3">
+          <label className="text-sm text-gray-400">Python path</label>
+          <input
+            type="text"
+            value={draft.pythonPath}
+            onChange={(e) => setDraft({ ...draft, pythonPath: e.target.value })}
+            className="w-full bg-gray-700 rounded px-3 py-2 text-sm mt-1"
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">API Keys</h2>
+        <div className="flex flex-col gap-3">
+          {['MODAL_TOKEN_ID', 'MODAL_TOKEN_SECRET', 'CLAUDE_API_KEY'].map(key => (
+            <div key={key}>
+              <label className="text-sm text-gray-400">{key}</label>
+              <input
+                type="password"
+                placeholder={envKeys[key] ? '(set) enter new value to change' : 'Not set'}
+                value={newEnv[key] || ''}
+                onChange={(e) => setNewEnv({ ...newEnv, [key]: e.target.value })}
+                className="w-full bg-gray-700 rounded px-3 py-2 text-sm mt-1 placeholder-gray-500"
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Pipeline</h2>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={draft.pipeline.deleteAfterProcessing}
+              onChange={(e) => setDraft({ ...draft, pipeline: { ...draft.pipeline, deleteAfterProcessing: e.target.checked } })}
+              className="accent-accent-500"
+            />
+            <span className="text-sm">Delete source after processing</span>
+          </label>
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={draft.pipeline.autoWatch}
+              onChange={(e) => setDraft({ ...draft, pipeline: { ...draft.pipeline, autoWatch: e.target.checked } })}
+              className="accent-accent-500"
+            />
+            <span className="text-sm">Auto-watch inbox folder</span>
+          </label>
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={draft.pipeline.autoSummarize}
+              onChange={(e) => setDraft({ ...draft, pipeline: { ...draft.pipeline, autoSummarize: e.target.checked } })}
+              className="accent-accent-500"
+            />
+            <span className="text-sm">Auto-summarize</span>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Obsidian</h2>
+        <p className="text-sm text-gray-500 italic">Coming soon</p>
+      </section>
+
+      <button
+        onClick={handleSave}
+        className="mt-auto py-2 bg-accent-500 hover:bg-accent-600 rounded font-medium"
+      >
+        {saved ? 'Saved!' : 'Save'}
+      </button>
+    </div>
+  )
+}
