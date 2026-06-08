@@ -215,13 +215,16 @@ def test_cli_summarize_flag(tmp_path):
     json_path = tmp_path / "test.json"
     json_path.write_text(json.dumps(transcript), encoding="utf-8")
 
+    project_dir = Path(__file__).resolve().parent.parent
     env = {k: v for k, v in os.environ.items()}
     env["ANTHROPIC_API_KEY"] = ""
+    env["CLAUDE_API_KEY"] = ""
     result = subprocess.run(
-        [sys.executable, "transcribe.py", "--summarize", str(json_path)],
+        [sys.executable, str(project_dir / "transcribe.py"), "--summarize", str(json_path)],
         capture_output=True,
         text=True,
         env=env,
+        cwd=tmp_path,
     )
     combined = result.stdout.lower() + result.stderr.lower()
     assert "skipping summary" in combined

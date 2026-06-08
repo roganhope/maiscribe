@@ -106,7 +106,7 @@ def render_markdown(summary: dict, recording_name: str) -> str:
 
 
 def call_claude(transcript_text: str, duration: float) -> dict | None:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY")
     if not api_key:
         print("[warn] ANTHROPIC_API_KEY not set — skipping summary")
         return None
@@ -132,14 +132,28 @@ def call_claude(transcript_text: str, duration: float) -> dict | None:
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
         )
-        response_text = message.content[0].text
+        response_text = message.content[0].text.strip()
+        if response_text.startswith("```"):
+            response_text = response_text.split("\n", 1)[1]
+            response_text = response_text.rsplit("```", 1)[0].strip()
         return json.loads(response_text)
     except (anthropic.APIError, json.JSONDecodeError) as e:
         print(f"[warn] summarization failed: {e}")
         return None
 
 
+def _load_env():
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
+
+
 def summarize_file(json_path: Path) -> bool:
+    _load_env()
     data = json.loads(json_path.read_text(encoding="utf-8"))
 
     transcript_text = format_transcript(data)
