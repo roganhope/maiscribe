@@ -3,6 +3,7 @@ import { join } from 'path'
 import { registerConfigIpc } from './config'
 import { registerEnvIpc } from './env'
 import { registerQueueIpc } from './queue'
+import { registerWatcherIpc, initWatcher } from './watcher'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -31,6 +32,7 @@ app.whenReady().then(() => {
   registerConfigIpc()
   registerEnvIpc()
   registerQueueIpc()
+  registerWatcherIpc()
 
   ipcMain.on('shell:openPath', (_event, path: string) => {
     shell.showItemInFolder(path)
@@ -50,6 +52,7 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+  initWatcher()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
