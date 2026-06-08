@@ -27,6 +27,7 @@ interface Props {
 
 export function QueueItem({ item }: Props) {
   const [expanded, setExpanded] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const percent = item.progressPercent ?? 0
 
   return (
@@ -37,6 +38,17 @@ export function QueueItem({ item }: Props) {
         </span>
 
         <span className="flex-1 truncate text-sm text-gray-200">{item.fileName}</span>
+
+        {item.status === 'staged' && (
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`text-xs px-2 py-0.5 rounded transition-colors ${
+              showSettings ? 'bg-gray-600 text-gray-200' : 'bg-gray-700 text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            Options
+          </button>
+        )}
 
         {item.status === 'processing' && (
           <span className="text-xs text-gray-400">
@@ -70,6 +82,34 @@ export function QueueItem({ item }: Props) {
           </div>
         )}
       </div>
+
+      {showSettings && item.status === 'staged' && (
+        <div className="px-4 pb-3 flex gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-400">Audio:</label>
+            <select
+              value={item.options.audioHandling}
+              onChange={(e) => window.api.queue.updateOptions(item.id, { audioHandling: e.target.value as any })}
+              className="text-xs bg-gray-700 rounded px-2 py-1 text-gray-200"
+            >
+              <option value="store">Store (keep original)</option>
+              <option value="store-and-delete">Store (delete original)</option>
+              <option value="delete">Delete</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-400">Summarize:</label>
+            <select
+              value={item.options.summarize ? 'yes' : 'no'}
+              onChange={(e) => window.api.queue.updateOptions(item.id, { summarize: e.target.value === 'yes' })}
+              className="text-xs bg-gray-700 rounded px-2 py-1 text-gray-200"
+            >
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {item.status === 'processing' && (
         <div className="px-4 pb-3 space-y-1.5">

@@ -55,6 +55,11 @@ export interface RecordingDetail {
   }
 }
 
+export interface QueueItemOptions {
+  audioHandling: 'store' | 'store-and-delete' | 'delete'
+  summarize: boolean
+}
+
 export interface QueueItem {
   id: string
   filePath: string
@@ -68,6 +73,7 @@ export interface QueueItem {
   startedAt: number | null
   completedAt: number | null
   estimatedDurationSec: number | null
+  options: QueueItemOptions
 }
 
 export type QueueState = QueueItem[]
@@ -79,6 +85,7 @@ export interface ElectronAPI {
     start: () => void
     retry: (id: string) => void
     cancel: () => void
+    updateOptions: (id: string, options: Partial<QueueItemOptions>) => void
   }
   config: {
     get: () => Promise<AppConfig | null>

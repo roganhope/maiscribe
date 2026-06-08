@@ -3,6 +3,7 @@ import { join } from 'path'
 import { mkdirSync } from 'fs'
 import { getConfig, getProjectRoot } from './config'
 import { getEnvVars } from './env'
+import type { QueueItemOptions } from '../shared/types'
 
 export interface PipelineCallbacks {
   onProgress: (line: string) => void
@@ -12,7 +13,7 @@ export interface PipelineCallbacks {
 
 let currentProcess: ChildProcess | null = null
 
-export function runPipeline(filePath: string, callbacks: PipelineCallbacks): void {
+export function runPipeline(filePath: string, callbacks: PipelineCallbacks, itemOptions?: QueueItemOptions): void {
   const config = getConfig()
   const pythonPath = config?.pythonPath || 'python3'
   const projectRoot = getProjectRoot()
@@ -25,9 +26,10 @@ export function runPipeline(filePath: string, callbacks: PipelineCallbacks): voi
     mkdirSync(outbox, { recursive: true })
     args.push('--outbox', outbox)
   }
-  const audioHandling = config?.pipeline.audioHandling || 'delete'
+  const audioHandling = itemOptions?.audioHandling || config?.pipeline.audioHandling || 'delete'
   args.push('--audio-handling', audioHandling)
-  if (config?.pipeline.autoSummarize === false) {
+  const summarize = itemOptions?.summarize ?? (config?.pipeline.autoSummarize !== false)
+  if (!summarize) {
     args.push('--no-summary')
   }
 

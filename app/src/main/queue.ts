@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid'
 import { statSync } from 'fs'
 import { ipcMain, BrowserWindow } from 'electron'
-import type { QueueItem, QueueState } from '../shared/types'
+import type { QueueItem, QueueItemOptions, QueueState } from '../shared/types'
+import { getConfig } from './config'
 import { runPipeline, cancelPipeline } from './pipeline'
 
 const BITRATE_ESTIMATES: Record<string, number> = {
@@ -97,7 +98,7 @@ function processNext(): void {
       emitState()
       processNext()
     },
-  })
+  }, next.options)
 }
 
 export function addToQueue(filePaths: string[]): void {
@@ -106,6 +107,7 @@ export function addToQueue(filePaths: string[]): void {
     if (already) continue
 
     const audioDuration = estimateAudioDuration(filePath)
+    const config = getConfig()
     items.push({
       id: uuidv4(),
       filePath,
@@ -119,6 +121,10 @@ export function addToQueue(filePaths: string[]): void {
       startedAt: null,
       completedAt: null,
       estimatedDurationSec: audioDuration ? Math.round(audioDuration * PROCESSING_SPEED_RATIO) : null,
+      options: {
+        audioHandling: config?.pipeline.audioHandling || 'delete',
+        summarize: config?.pipeline.autoSummarize !== false,
+      },
     })
   }
   emitState()
@@ -150,6 +156,14 @@ export function getQueueState(): QueueState {
   return items
 }
 
+export function updateItemOptions(id: string, options: Partial<QueueItemOptions>): void {
+  const item = items.find(i => i.id === id)
+  if (item && item.status === 'staged') {
+    item.options = { ...item.options, ...options }
+    emitState()
+  }
+}
+
 export function registerQueueIpc(): void {
   ipcMain.on('queue:add', (_event, filePaths: string[]) => {
     addToQueue(filePaths)
@@ -161,6 +175,10 @@ export function registerQueueIpc(): void {
 
   ipcMain.on('queue:retry', (_event, id: string) => {
     retryItem(id)
+  })
+
+  ipcMain.on('queue:updateOptions', (_event, id: string, options: Partial<QueueItemOptions>) => {
+    updateItemOptions(id, options)
   })
 
   ipcMain.on('pipeline:cancel', () => {
