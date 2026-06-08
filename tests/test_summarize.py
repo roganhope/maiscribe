@@ -1,7 +1,9 @@
 import json
 from unittest.mock import patch, MagicMock
 
-from summarize import format_transcript, render_markdown, call_claude
+from pathlib import Path
+
+from summarize import format_transcript, render_markdown, call_claude, summarize_file
 
 
 def test_format_transcript_multiple_speakers():
@@ -146,3 +148,56 @@ def test_call_claude_returns_none_on_missing_key(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     result = call_claude("Alice: Hello", 60.0)
     assert result is None
+
+
+def test_summarize_file_writes_both_outputs(tmp_path):
+    transcript = {
+        "text": "Hello everyone. Let's discuss the project.",
+        "duration": 300.0,
+        "segments": [
+            {"start": 0.0, "end": 5.0, "text": "Hello everyone", "speaker": "Alice"},
+            {"start": 5.0, "end": 10.0, "text": "Let's discuss the project", "speaker": "Bob"},
+        ],
+    }
+    json_path = tmp_path / "recording.json"
+    json_path.write_text(json.dumps(transcript), encoding="utf-8")
+
+    mock_summary = {
+        "recording_type": "meeting",
+        "participants": ["Alice", "Bob"],
+        "duration_minutes": 5,
+        "summary_model": "claude-sonnet-4-6",
+        "sections": [
+            {"type": "tldr", "title": "TL;DR", "content": "Quick project chat."}
+        ],
+    }
+
+    with patch("summarize.call_claude", return_value=mock_summary):
+        result = summarize_file(json_path)
+
+    assert result is True
+    assert (tmp_path / "summary.json").exists()
+    assert (tmp_path / "summary.md").exists()
+
+    saved_json = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
+    assert saved_json["recording_type"] == "meeting"
+
+    md_content = (tmp_path / "summary.md").read_text(encoding="utf-8")
+    assert "# Summary: recording" in md_content
+
+
+def test_summarize_file_returns_false_on_api_failure(tmp_path):
+    transcript = {
+        "text": "Hello",
+        "duration": 60.0,
+        "segments": [{"start": 0.0, "end": 5.0, "text": "Hello", "speaker": "Alice"}],
+    }
+    json_path = tmp_path / "recording.json"
+    json_path.write_text(json.dumps(transcript), encoding="utf-8")
+
+    with patch("summarize.call_claude", return_value=None):
+        result = summarize_file(json_path)
+
+    assert result is False
+    assert not (tmp_path / "summary.json").exists()
+    assert not (tmp_path / "summary.md").exists()

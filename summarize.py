@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import anthropic
 
@@ -136,3 +137,34 @@ def call_claude(transcript_text: str, duration: float) -> dict | None:
     except (anthropic.APIError, json.JSONDecodeError) as e:
         print(f"[warn] summarization failed: {e}")
         return None
+
+
+def summarize_file(json_path: Path) -> bool:
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+
+    transcript_text = format_transcript(data)
+    if not transcript_text:
+        print(f"[warn] no segments in {json_path.name} — skipping summary")
+        return False
+
+    duration = data.get("duration", 0.0)
+    summary = call_claude(transcript_text, duration)
+    if summary is None:
+        return False
+
+    summary.setdefault("summary_model", SUMMARY_MODEL)
+
+    out_dir = json_path.parent
+    summary_json_path = out_dir / "summary.json"
+    summary_md_path = out_dir / "summary.md"
+
+    recording_name = json_path.stem
+    summary_json_path.write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    summary_md_path.write_text(
+        render_markdown(summary, recording_name), encoding="utf-8"
+    )
+
+    print(f"[summary] {summary_md_path}")
+    return True
