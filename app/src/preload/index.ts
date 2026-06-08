@@ -1,0 +1,35 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import type { ElectronAPI } from '../shared/types'
+
+const api: ElectronAPI = {
+  queue: {
+    onState: (callback) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: unknown) => callback(state as any)
+      ipcRenderer.on('queue:state', handler)
+      return () => { ipcRenderer.removeListener('queue:state', handler) }
+    },
+    add: (filePaths) => ipcRenderer.send('queue:add', filePaths),
+    retry: (id) => ipcRenderer.send('queue:retry', id),
+    cancel: () => ipcRenderer.send('pipeline:cancel'),
+  },
+  config: {
+    get: () => ipcRenderer.invoke('config:get'),
+    set: (config) => ipcRenderer.invoke('config:set', config),
+  },
+  env: {
+    get: () => ipcRenderer.invoke('env:get'),
+    set: (vars) => ipcRenderer.invoke('env:set', vars),
+  },
+  watcher: {
+    toggle: (enabled) => ipcRenderer.send('watcher:toggle', enabled),
+  },
+  shell: {
+    openPath: (path) => ipcRenderer.send('shell:openPath', path),
+  },
+  dialog: {
+    selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
+    selectFiles: () => ipcRenderer.invoke('dialog:selectFiles'),
+  },
+}
+
+contextBridge.exposeInMainWorld('api', api)
