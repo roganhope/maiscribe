@@ -5,3 +5,7 @@ __pycache__/
 inbox/
 outbox/
 errors.txt
+app/out/
+app/node_modules/
+app/dist/
+config.json
