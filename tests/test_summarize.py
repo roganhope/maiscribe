@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import sys
 from unittest.mock import patch, MagicMock
 
 from pathlib import Path
@@ -201,3 +204,25 @@ def test_summarize_file_returns_false_on_api_failure(tmp_path):
     assert result is False
     assert not (tmp_path / "summary.json").exists()
     assert not (tmp_path / "summary.md").exists()
+
+
+def test_cli_summarize_flag(tmp_path):
+    transcript = {
+        "text": "Hello",
+        "duration": 60.0,
+        "segments": [{"start": 0.0, "end": 5.0, "text": "Hello", "speaker": "Alice"}],
+    }
+    json_path = tmp_path / "test.json"
+    json_path.write_text(json.dumps(transcript), encoding="utf-8")
+
+    env = {k: v for k, v in os.environ.items()}
+    env["ANTHROPIC_API_KEY"] = ""
+    result = subprocess.run(
+        [sys.executable, "transcribe.py", "--summarize", str(json_path)],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    combined = result.stdout.lower() + result.stderr.lower()
+    assert "skipping summary" in combined
+    assert result.returncode == 1

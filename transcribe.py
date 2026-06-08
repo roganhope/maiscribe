@@ -141,8 +141,6 @@ def run_list_speakers():
 
 
 def main():
-    from modal_app import app, transcribe_audio
-
     parser = argparse.ArgumentParser(
         description="Transcribe audio files using Modal + faster-whisper + pyannote diarization"
     )
@@ -159,7 +157,23 @@ def main():
         "--list-speakers", action="store_true",
         help="List all enrolled speakers in the voice repo",
     )
+    parser.add_argument(
+        "--summarize", type=Path, metavar="JSON",
+        help="Summarize an existing transcription JSON file",
+    )
+    parser.add_argument(
+        "--no-summary", action="store_true",
+        help="Skip automatic summarization after transcription",
+    )
     args = parser.parse_args()
+
+    if args.summarize is not None:
+        if not args.summarize.exists():
+            print(f"[error] file not found: {args.summarize}")
+            sys.exit(1)
+        from summarize import summarize_file
+        success = summarize_file(args.summarize)
+        sys.exit(0 if success else 1)
 
     if args.list_speakers:
         run_list_speakers()
@@ -171,6 +185,8 @@ def main():
             sys.exit(1)
         run_enroll(args.enroll)
         return
+
+    from modal_app import app, transcribe_audio
 
     if args.folder is not None:
         if not args.folder.is_dir():
@@ -213,6 +229,9 @@ def main():
                     unknown = [s for s in speakers if s and s.startswith("SPEAKER_")]
                     label = f" (unknown speakers: {', '.join(sorted(unknown))})" if unknown else ""
                     print(f"[done] {file_path.name} → {out_folder}{label}")
+                    if not args.no_summary:
+                        from summarize import summarize_file
+                        summarize_file(json_path)
                 else:
                     write_error_log(file_path, result["error"], result.get("traceback"))
                     print(f"[error] {file_path.name}: {result['error']}")
