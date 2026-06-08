@@ -2,3 +2,4 @@ modal
 faster-whisper
 pyannote.audio
 pytest
+anthropic
