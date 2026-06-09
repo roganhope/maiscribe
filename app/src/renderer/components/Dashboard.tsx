@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react'
 import { DropZone } from './DropZone'
 import { QueueItem } from './QueueItem'
 import { useQueue } from '../hooks/useQueue'
-import { useConfig } from '../hooks/useConfig'
 
 interface DashboardProps {
   onOpenHistory: (outputPath: string) => void
@@ -10,20 +8,6 @@ interface DashboardProps {
 
 export function Dashboard({ onOpenHistory }: DashboardProps) {
   const queue = useQueue()
-  const { config } = useConfig()
-  const [watching, setWatching] = useState(false)
-
-  useEffect(() => {
-    if (config?.pipeline.autoWatch) {
-      setWatching(true)
-    }
-  }, [config])
-
-  function toggleWatcher() {
-    const next = !watching
-    setWatching(next)
-    window.api.watcher.toggle(next)
-  }
 
   const isProcessing = queue.some(i => i.status === 'processing')
   const hasStaged = queue.some(i => i.status === 'staged')
@@ -42,32 +26,14 @@ export function Dashboard({ onOpenHistory }: DashboardProps) {
     <div className="flex flex-col gap-6 p-6 h-full" tabIndex={0} onKeyDown={handleKeyDown}>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-100">Audio Transcription</h1>
-        <div className="flex items-center gap-3">
+        {isProcessing && (
           <button
-            onClick={toggleWatcher}
-            className={`text-xs px-3 py-1 rounded ${
-              watching ? 'bg-green-600/20 text-green-400' : 'bg-gray-700 text-gray-400'
-            }`}
+            onClick={() => window.api.queue.cancel()}
+            className="text-xs px-3 py-1 rounded bg-red-600/20 text-red-400 hover:bg-red-600/30"
           >
-            {watching ? 'Watching' : 'Watch off'}
+            Cancel
           </button>
-          {hasStaged && !isProcessing && (
-            <button
-              onClick={handleStart}
-              className="text-xs px-3 py-1 rounded bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 font-medium"
-            >
-              Start
-            </button>
-          )}
-          {isProcessing && (
-            <button
-              onClick={() => window.api.queue.cancel()}
-              className="text-xs px-3 py-1 rounded bg-red-600/20 text-red-400 hover:bg-red-600/30"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       <DropZone />
@@ -84,6 +50,17 @@ export function Dashboard({ onOpenHistory }: DashboardProps) {
         <p className="text-center text-gray-500 mt-8">
           No files in queue. Drop audio files above or add them to the inbox folder.
         </p>
+      )}
+
+      {hasStaged && !isProcessing && (
+        <div className="flex justify-center pb-2">
+          <button
+            onClick={handleStart}
+            className="px-6 py-2 rounded-lg bg-accent-500 hover:bg-accent-600 text-white font-medium text-sm"
+          >
+            Start Transcriptions
+          </button>
+        </div>
       )}
     </div>
   )
