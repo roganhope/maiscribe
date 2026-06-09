@@ -140,8 +140,8 @@ export function SetupWizard({ onComplete }: Props) {
             <p className="text-sm text-gray-400 mb-4">
               Modal runs the transcription pipeline in the cloud. You need a token pair to authenticate.
             </p>
-            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-1">
-              <li>Go to <span className="text-gray-200">modal.com/settings</span></li>
+            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-2">
+              <li>Go to <ExternalLink href="https://modal.com/settings">Modal Settings</ExternalLink></li>
               <li>Click "New Token" under API Tokens</li>
               <li>Copy the Token ID and Token Secret below</li>
             </ol>
@@ -203,12 +203,14 @@ export function SetupWizard({ onComplete }: Props) {
           <div>
             <h2 className="text-lg font-semibold mb-2">Hugging Face</h2>
             <p className="text-sm text-gray-400 mb-4">
-              Required for speaker diarization (identifying who said what). The pyannote model needs a Hugging Face access token.
+              Required for speaker diarization (identifying who said what). You need to accept the model licenses and create a token.
             </p>
-            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-1">
-              <li>Go to <span className="text-gray-200">huggingface.co/settings/tokens</span></li>
+            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-2">
+              <li>Accept the license for <ExternalLink href="https://huggingface.co/pyannote/speaker-diarization-3.1">pyannote/speaker-diarization-3.1</ExternalLink></li>
+              <li>Accept the license for <ExternalLink href="https://huggingface.co/pyannote/segmentation-3.0">pyannote/segmentation-3.0</ExternalLink></li>
+              <li>Accept the license for <ExternalLink href="https://huggingface.co/pyannote/embedding">pyannote/embedding</ExternalLink></li>
+              <li>Go to <ExternalLink href="https://huggingface.co/settings/tokens">Settings → Access Tokens</ExternalLink></li>
               <li>Create a new token with "Read" access</li>
-              <li>Accept the pyannote model terms at <span className="text-gray-200">huggingface.co/pyannote/speaker-diarization-3.1</span></li>
             </ol>
             <div>
               <label className="text-sm text-gray-400">Access Token</label>
@@ -259,8 +261,8 @@ export function SetupWizard({ onComplete }: Props) {
             <p className="text-sm text-gray-400 mb-4">
               Used to generate meeting summaries from transcriptions. Without this, transcription still works but summaries will be skipped.
             </p>
-            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-1">
-              <li>Go to <span className="text-gray-200">console.anthropic.com/settings/keys</span></li>
+            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-2">
+              <li>Go to <ExternalLink href="https://console.anthropic.com/settings/keys">Anthropic Console → API Keys</ExternalLink></li>
               <li>Click "Create Key"</li>
               <li>Copy the key below</li>
             </ol>
@@ -377,6 +379,17 @@ export function SetupWizard({ onComplete }: Props) {
         )}
       </div>
     </div>
+  )
+}
+
+function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={() => window.api.shell.openExternal(href)}
+      className="text-accent-400 hover:text-accent-300 underline"
+    >
+      {children}
+    </button>
   )
 }
 

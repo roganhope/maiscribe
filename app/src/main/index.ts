@@ -45,6 +45,10 @@ app.whenReady().then(() => {
     shell.showItemInFolder(path)
   })
 
+  ipcMain.on('shell:openExternal', (_event, url: string) => {
+    shell.openExternal(url)
+  })
+
   ipcMain.handle('dialog:selectDirectory', async () => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     return result.canceled ? null : result.filePaths[0]

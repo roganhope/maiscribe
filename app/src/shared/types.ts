@@ -109,6 +109,7 @@ export interface ElectronAPI {
   }
   shell: {
     openPath: (path: string) => void
+    openExternal: (url: string) => void
   }
   dialog: {
     selectDirectory: () => Promise<string | null>

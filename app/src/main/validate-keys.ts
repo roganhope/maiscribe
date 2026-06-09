@@ -55,19 +55,45 @@ async function validateModal(tokenId: string, tokenSecret: string): Promise<Vali
   }
 }
 
+const HF_REQUIRED_MODELS = [
+  'pyannote/speaker-diarization-3.1',
+  'pyannote/segmentation-3.0',
+  'pyannote/embedding',
+]
+
+async function checkModelAccess(token: string, model: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await httpsJson({
+    hostname: 'huggingface.co',
+    path: `/api/models/${model}`,
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+  if (res.status === 200) return { ok: true }
+  if (res.status === 401) return { ok: false, error: `Invalid token` }
+  if (res.status === 403) return { ok: false, error: `Access denied for ${model} — accept the license on the model page` }
+  if (res.status === 404) return { ok: false, error: `Model not found: ${model}` }
+  return { ok: false, error: `${model}: unexpected response (${res.status})` }
+}
+
 async function validateHuggingFace(token: string): Promise<ValidationResult> {
   try {
-    const res = await httpsJson({
+    // First check the token is valid at all
+    const whoami = await httpsJson({
       hostname: 'huggingface.co',
       path: '/api/whoami',
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: { 'Authorization': `Bearer ${token}` },
     })
-    if (res.status === 200) return { ok: true }
-    if (res.status === 401) return { ok: false, error: 'Invalid Hugging Face token' }
-    return { ok: false, error: `Unexpected response (${res.status})` }
+    if (whoami.status === 401) return { ok: false, error: 'Invalid Hugging Face token' }
+
+    // Then check access to each required model
+    for (const model of HF_REQUIRED_MODELS) {
+      const result = await checkModelAccess(token, model)
+      if (!result.ok) return { ok: false, error: result.error }
+    }
+    return { ok: true }
   } catch (err: any) {
     return { ok: false, error: err.message }
   }

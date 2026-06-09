@@ -32,6 +32,7 @@ const api: ElectronAPI = {
   },
   shell: {
     openPath: (path) => ipcRenderer.send('shell:openPath', path),
+    openExternal: (url) => ipcRenderer.send('shell:openExternal', url),
   },
   dialog: {
     selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
