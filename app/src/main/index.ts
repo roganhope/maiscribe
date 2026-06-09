@@ -1,6 +1,6 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import { join } from 'path'
-import { registerConfigIpc } from './config'
+import { registerConfigIpc, migrateFromRepoRoot, ensureDataDirs } from './config'
 import { registerEnvIpc } from './env'
 import { registerQueueIpc } from './queue'
 import { registerWatcherIpc, initWatcher } from './watcher'
@@ -32,6 +32,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  migrateFromRepoRoot()
+  ensureDataDirs()
   registerConfigIpc()
   registerEnvIpc()
   registerQueueIpc()

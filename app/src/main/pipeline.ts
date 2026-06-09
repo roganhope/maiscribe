@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from 'child_process'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
-import { getConfig, getProjectRoot } from './config'
+import { getConfig, getSourceRoot } from './config'
 import { getEnvVars } from './env'
 import { getPythonPath } from './python-env'
 import type { QueueItemOptions } from '../shared/types'
@@ -17,8 +17,8 @@ let currentProcess: ChildProcess | null = null
 export function runPipeline(filePath: string, callbacks: PipelineCallbacks, itemOptions?: QueueItemOptions): void {
   const config = getConfig()
   const pythonPath = getPythonPath()
-  const projectRoot = getProjectRoot()
-  const transcriptPath = join(projectRoot, 'transcribe.py')
+  const sourceRoot = getSourceRoot()
+  const transcriptPath = join(sourceRoot, 'transcribe.py')
   const envVars = getEnvVars()
 
   const args = [transcriptPath, filePath]
@@ -35,7 +35,7 @@ export function runPipeline(filePath: string, callbacks: PipelineCallbacks, item
   }
 
   currentProcess = spawn(pythonPath, args, {
-    cwd: projectRoot,
+    cwd: sourceRoot,
     env: { ...process.env, ...envVars },
   })
 

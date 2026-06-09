@@ -1,12 +1,60 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, copyFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import type { AppConfig } from '../shared/types'
 
-const PROJECT_ROOT = join(__dirname, '..', '..', '..')
+function userDataDir(): string {
+  return app.getPath('userData')
+}
 
 function configPath(): string {
-  return join(PROJECT_ROOT, 'config.json')
+  return join(userDataDir(), 'config.json')
+}
+
+export function getSourceRoot(): string {
+  return join(__dirname, '..', '..', '..')
+}
+
+function defaultBasePath(): string {
+  return join(app.getPath('documents'), 'Audio Transcriptions')
+}
+
+function defaultConfig(): AppConfig {
+  return {
+    version: 1,
+    basePath: defaultBasePath(),
+    pipeline: {
+      audioHandling: 'store',
+      autoWatch: true,
+      autoSummarize: true,
+    },
+    obsidian: {
+      enabled: false,
+      vaultPath: null,
+      outputFolder: null,
+    },
+  }
+}
+
+export function migrateFromRepoRoot(): void {
+  const repoRoot = getSourceRoot()
+  const oldConfigPath = join(repoRoot, 'config.json')
+  const oldEnvPath = join(repoRoot, '.env')
+  const newConfigPath = configPath()
+  const newEnvPath = join(userDataDir(), '.env')
+
+  if (existsSync(oldConfigPath) && !existsSync(newConfigPath)) {
+    const oldConfig = JSON.parse(readFileSync(oldConfigPath, 'utf-8'))
+    if (oldConfig.basePath && oldConfig.basePath !== repoRoot) {
+      mkdirSync(userDataDir(), { recursive: true })
+      copyFileSync(oldConfigPath, newConfigPath)
+    }
+  }
+
+  if (existsSync(newConfigPath) && existsSync(oldEnvPath) && !existsSync(newEnvPath)) {
+    mkdirSync(userDataDir(), { recursive: true })
+    copyFileSync(oldEnvPath, newEnvPath)
+  }
 }
 
 export function getConfig(): AppConfig | null {
@@ -29,16 +77,23 @@ export function getConfig(): AppConfig | null {
 }
 
 export function setConfig(config: AppConfig): void {
+  mkdirSync(userDataDir(), { recursive: true })
   writeFileSync(configPath(), JSON.stringify(config, null, 2), 'utf-8')
 }
 
-export function getProjectRoot(): string {
-  return PROJECT_ROOT
+export function ensureDataDirs(): void {
+  const config = getConfig()
+  if (!config) return
+  mkdirSync(join(config.basePath, 'inbox'), { recursive: true })
+  mkdirSync(join(config.basePath, 'outbox'), { recursive: true })
 }
 
 export function registerConfigIpc(): void {
   ipcMain.handle('config:get', () => getConfig())
   ipcMain.handle('config:set', (_event, config: AppConfig) => {
     setConfig(config)
+    mkdirSync(join(config.basePath, 'inbox'), { recursive: true })
+    mkdirSync(join(config.basePath, 'outbox'), { recursive: true })
   })
+  ipcMain.handle('config:defaultBasePath', () => defaultBasePath())
 }

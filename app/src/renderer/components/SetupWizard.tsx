@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { AppConfig } from '../../shared/types'
 
 type Step = 'folder' | 'modal' | 'huggingface' | 'claude' | 'options' | 'done'
@@ -11,6 +11,10 @@ interface Props {
 export function SetupWizard({ onComplete }: Props) {
   const [step, setStep] = useState<Step>('folder')
   const [basePath, setBasePath] = useState('')
+
+  useEffect(() => {
+    window.api.config.defaultBasePath().then(setBasePath)
+  }, [])
   const [modalTokenId, setModalTokenId] = useState('')
   const [modalTokenSecret, setModalTokenSecret] = useState('')
   const [hfToken, setHfToken] = useState('')
@@ -105,23 +109,22 @@ export function SetupWizard({ onComplete }: Props) {
 
         {step === 'folder' && (
           <div>
-            <h2 className="text-lg font-semibold mb-4">Project Folder</h2>
+            <h2 className="text-lg font-semibold mb-4">Storage Location</h2>
             <p className="text-sm text-gray-400 mb-4">
-              Select the folder where your inbox and outbox live.
+              Your recordings and transcriptions will be stored here. You can change this later in Settings.
             </p>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={basePath}
                 onChange={(e) => setBasePath(e.target.value)}
-                placeholder="/path/to/audio-transcription"
-                className="flex-1 bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 placeholder-gray-500"
+                className="flex-1 bg-gray-700 rounded px-3 py-2 text-sm text-gray-200"
               />
               <button
                 onClick={selectFolder}
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm"
               >
-                Browse
+                Change
               </button>
             </div>
             <button

@@ -1,10 +1,9 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
-import { ipcMain } from 'electron'
-import { getProjectRoot } from './config'
+import { app, ipcMain } from 'electron'
 
 function envPath(): string {
-  return join(getProjectRoot(), '.env')
+  return join(app.getPath('userData'), '.env')
 }
 
 export function getEnvVars(): Record<string, string> {

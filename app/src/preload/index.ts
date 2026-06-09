@@ -17,6 +17,7 @@ const api: ElectronAPI = {
   config: {
     get: () => ipcRenderer.invoke('config:get'),
     set: (config) => ipcRenderer.invoke('config:set', config),
+    defaultBasePath: () => ipcRenderer.invoke('config:defaultBasePath'),
   },
   env: {
     get: () => ipcRenderer.invoke('env:get'),

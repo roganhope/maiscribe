@@ -1,17 +1,17 @@
 import { watch, FSWatcher } from 'chokidar'
 import { join } from 'path'
 import { ipcMain } from 'electron'
-import { getConfig, getProjectRoot } from './config'
+import { getConfig } from './config'
 import { addToQueue } from './queue'
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.wav', '.flac', '.ogg', '.aac', '.opus', '.mp4'])
 
 let watcher: FSWatcher | null = null
 
-function inboxPath(): string {
+function inboxPath(): string | null {
   const config = getConfig()
-  const base = config?.basePath || getProjectRoot()
-  return join(base, 'inbox')
+  if (!config) return null
+  return join(config.basePath, 'inbox')
 }
 
 function isAudioFile(filePath: string): boolean {
@@ -23,6 +23,7 @@ export function startWatcher(): void {
   if (watcher) return
 
   const path = inboxPath()
+  if (!path) return
   watcher = watch(path, {
     ignoreInitial: false,
     depth: 0,

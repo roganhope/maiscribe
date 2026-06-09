@@ -94,6 +94,7 @@ export interface ElectronAPI {
   config: {
     get: () => Promise<AppConfig | null>
     set: (config: AppConfig) => Promise<void>
+    defaultBasePath: () => Promise<string>
   }
   env: {
     get: () => Promise<Record<string, string>>
