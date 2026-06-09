@@ -2,11 +2,7 @@ import { useState, useEffect } from 'react'
 import type { AppConfig } from '../../shared/types'
 import { useConfig } from '../hooks/useConfig'
 
-interface Props {
-  onBack: () => void
-}
-
-export function Settings({ onBack }: Props) {
+export function Settings() {
   const { config, saveConfig } = useConfig()
   const [draft, setDraft] = useState<AppConfig | null>(null)
   const [envKeys, setEnvKeys] = useState<Record<string, string>>({})
@@ -37,12 +33,7 @@ export function Settings({ onBack }: Props) {
 
   return (
     <div className="p-6 flex flex-col gap-6 h-full overflow-y-auto">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Settings</h1>
-        <button onClick={onBack} className="text-sm text-gray-400 hover:text-gray-200">
-          ← Back
-        </button>
-      </div>
+      <h1 className="text-xl font-bold">Settings</h1>
 
       <section>
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Folders</h2>

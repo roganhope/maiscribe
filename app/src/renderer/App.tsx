@@ -5,13 +5,11 @@ import { SetupWizard } from './components/SetupWizard'
 import { Settings } from './components/Settings'
 import { HistoryView, HistoryViewHandle } from './components/HistoryView'
 
-type Tab = 'process' | 'history'
-type View = 'main' | 'settings'
+type Tab = 'process' | 'history' | 'settings'
 
 export default function App() {
   const { config, saveConfig, loading } = useConfig()
   const [tab, setTab] = useState<Tab>('process')
-  const [view, setView] = useState<View>('main')
   const [wizardDone, setWizardDone] = useState(false)
   const historyRef = useRef<HistoryViewHandle>(null)
 
@@ -41,39 +39,32 @@ export default function App() {
     )
   }
 
-  if (view === 'settings') {
-    return <Settings onBack={() => setView('main')} />
-  }
-
   return (
     <div className="flex flex-col h-screen">
       <div className="flex items-center border-b border-gray-700 px-6 pt-8 drag-region">
         <nav className="flex gap-6 no-drag">
-          <button
-            onClick={() => setTab('process')}
-            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === 'process'
-                ? 'border-accent-400 text-accent-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            Process
-          </button>
-          <button
-            onClick={() => setTab('history')}
-            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === 'history'
-                ? 'border-accent-400 text-accent-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            History
-          </button>
+          {(['process', 'history'] as Tab[]).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`pb-2 text-sm font-medium border-b-2 transition-colors capitalize ${
+                tab === t
+                  ? 'border-accent-400 text-accent-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
         </nav>
         <div className="flex-1" />
         <button
-          onClick={() => setView('settings')}
-          className="text-xs text-gray-500 hover:text-gray-300 no-drag pb-2"
+          onClick={() => setTab('settings')}
+          className={`pb-2 text-sm font-medium border-b-2 transition-colors no-drag ${
+            tab === 'settings'
+              ? 'border-accent-400 text-accent-400'
+              : 'border-transparent text-gray-400 hover:text-gray-200'
+          }`}
         >
           Settings
         </button>
@@ -82,6 +73,7 @@ export default function App() {
       <div className="flex-1 min-h-0">
         {tab === 'process' && <Dashboard onOpenHistory={handleOpenHistory} />}
         {tab === 'history' && <HistoryView ref={historyRef} />}
+        {tab === 'settings' && <Settings />}
       </div>
     </div>
   )
