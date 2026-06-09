@@ -1,8 +1,13 @@
+import { forwardRef, useImperativeHandle } from 'react'
 import { useHistory } from '../hooks/useHistory'
 import { RecordingSidebar } from './RecordingSidebar'
 import { RecordingDetail } from './RecordingDetail'
 
-export function HistoryView() {
+export interface HistoryViewHandle {
+  selectByPath: (folderPath: string) => void
+}
+
+export const HistoryView = forwardRef<HistoryViewHandle>(function HistoryView(_props, ref) {
   const {
     recordings,
     selectedId,
@@ -11,7 +16,22 @@ export function HistoryView() {
     detailLoading,
     selectRecording,
     updateTitle,
+    refresh,
   } = useHistory()
+
+  useImperativeHandle(ref, () => ({
+    selectByPath(folderPath: string) {
+      refresh().then(() => {
+        const folderName = folderPath.split('/').pop() || folderPath
+        const match = recordings.find(r => r.id === folderName || r.folderPath === folderPath)
+        if (match) {
+          selectRecording(match.id)
+        } else {
+          selectRecording(folderName)
+        }
+      })
+    },
+  }), [recordings, selectRecording, refresh])
 
   if (loading) {
     return (
@@ -52,4 +72,4 @@ export function HistoryView() {
       </div>
     </div>
   )
-}
+})

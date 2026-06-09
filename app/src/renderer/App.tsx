@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useConfig } from './hooks/useConfig'
 import { Dashboard } from './components/Dashboard'
 import { SetupWizard } from './components/SetupWizard'
 import { Settings } from './components/Settings'
-import { HistoryView } from './components/HistoryView'
+import { HistoryView, HistoryViewHandle } from './components/HistoryView'
 
 type Tab = 'process' | 'history'
 type View = 'main' | 'settings'
@@ -13,6 +13,14 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('process')
   const [view, setView] = useState<View>('main')
   const [wizardDone, setWizardDone] = useState(false)
+  const historyRef = useRef<HistoryViewHandle>(null)
+
+  function handleOpenHistory(outputPath: string) {
+    setTab('history')
+    setTimeout(() => {
+      historyRef.current?.selectByPath(outputPath)
+    }, 100)
+  }
 
   if (loading) {
     return (
@@ -72,8 +80,8 @@ export default function App() {
       </div>
 
       <div className="flex-1 min-h-0">
-        {tab === 'process' && <Dashboard />}
-        {tab === 'history' && <HistoryView />}
+        {tab === 'process' && <Dashboard onOpenHistory={handleOpenHistory} />}
+        {tab === 'history' && <HistoryView ref={historyRef} />}
       </div>
     </div>
   )

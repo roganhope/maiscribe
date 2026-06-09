@@ -23,9 +23,10 @@ function getProgressLabel(item: QueueItemType): string {
 
 interface Props {
   item: QueueItemType
+  onOpenHistory: (outputPath: string) => void
 }
 
-export function QueueItem({ item }: Props) {
+export function QueueItem({ item, onOpenHistory }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const percent = item.progressPercent ?? 0
@@ -58,7 +59,7 @@ export function QueueItem({ item }: Props) {
 
         {item.status === 'done' && item.outputPath && (
           <button
-            onClick={() => window.api.shell.openPath(item.outputPath!)}
+            onClick={() => onOpenHistory(item.outputPath!)}
             className="text-xs text-accent-400 hover:text-accent-300"
           >
             Open

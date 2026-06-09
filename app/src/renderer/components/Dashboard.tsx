@@ -4,7 +4,11 @@ import { QueueItem } from './QueueItem'
 import { useQueue } from '../hooks/useQueue'
 import { useConfig } from '../hooks/useConfig'
 
-export function Dashboard() {
+interface DashboardProps {
+  onOpenHistory: (outputPath: string) => void
+}
+
+export function Dashboard({ onOpenHistory }: DashboardProps) {
   const queue = useQueue()
   const { config } = useConfig()
   const [watching, setWatching] = useState(false)
@@ -71,7 +75,7 @@ export function Dashboard() {
       {queue.length > 0 && (
         <div className="flex flex-col gap-2 overflow-y-auto flex-1">
           {queue.map(item => (
-            <QueueItem key={item.id} item={item} />
+            <QueueItem key={item.id} item={item} onOpenHistory={onOpenHistory} />
           ))}
         </div>
       )}
