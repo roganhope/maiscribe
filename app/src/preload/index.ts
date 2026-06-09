@@ -12,6 +12,7 @@ const api: ElectronAPI = {
     start: () => ipcRenderer.send('queue:start'),
     retry: (id) => ipcRenderer.send('queue:retry', id),
     cancel: () => ipcRenderer.send('pipeline:cancel'),
+    remove: (id) => ipcRenderer.send('queue:remove', id),
     updateOptions: (id, options) => ipcRenderer.send('queue:updateOptions', id, options),
   },
   config: {

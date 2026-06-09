@@ -164,6 +164,11 @@ export function getQueueState(): QueueState {
   return items
 }
 
+export function removeItem(id: string): void {
+  items = items.filter(i => i.id !== id)
+  emitState()
+}
+
 export function updateItemOptions(id: string, options: Partial<QueueItemOptions>): void {
   const item = items.find(i => i.id === id)
   if (item && item.status === 'staged') {
@@ -187,6 +192,10 @@ export function registerQueueIpc(): void {
 
   ipcMain.on('queue:updateOptions', (_event, id: string, options: Partial<QueueItemOptions>) => {
     updateItemOptions(id, options)
+  })
+
+  ipcMain.on('queue:remove', (_event, id: string) => {
+    removeItem(id)
   })
 
   ipcMain.on('pipeline:cancel', () => {

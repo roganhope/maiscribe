@@ -21,9 +21,9 @@ export const HistoryView = forwardRef<HistoryViewHandle>(function HistoryView(_p
 
   useImperativeHandle(ref, () => ({
     selectByPath(folderPath: string) {
-      refresh().then(() => {
+      refresh().then((list) => {
         const folderName = folderPath.split('/').pop() || folderPath
-        const match = recordings.find(r => r.id === folderName || r.folderPath === folderPath)
+        const match = list.find(r => r.id === folderName || r.folderPath === folderPath)
         if (match) {
           selectRecording(match.id)
         } else {
@@ -31,7 +31,7 @@ export const HistoryView = forwardRef<HistoryViewHandle>(function HistoryView(_p
         }
       })
     },
-  }), [recordings, selectRecording, refresh])
+  }), [selectRecording, refresh])
 
   if (loading) {
     return (

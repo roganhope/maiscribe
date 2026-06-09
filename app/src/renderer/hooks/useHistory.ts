@@ -16,6 +16,7 @@ export function useHistory() {
     if (list.length > 0 && !selectedId) {
       setSelectedId(list[0].id)
     }
+    return list
   }, [])
 
   useEffect(() => {

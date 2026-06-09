@@ -88,6 +88,7 @@ export interface ElectronAPI {
     add: (filePaths: string[]) => void
     start: () => void
     retry: (id: string) => void
+    remove: (id: string) => void
     cancel: () => void
     updateOptions: (id: string, options: Partial<QueueItemOptions>) => void
   }

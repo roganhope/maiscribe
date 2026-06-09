@@ -59,7 +59,7 @@ export function QueueItem({ item, onOpenHistory }: Props) {
 
         {item.status === 'done' && item.outputPath && (
           <button
-            onClick={() => onOpenHistory(item.outputPath!)}
+            onClick={() => { window.api.queue.remove(item.id); onOpenHistory(item.outputPath!) }}
             className="text-xs text-accent-400 hover:text-accent-300"
           >
             Open
@@ -81,6 +81,15 @@ export function QueueItem({ item, onOpenHistory }: Props) {
               Retry
             </button>
           </div>
+        )}
+
+        {item.status !== 'processing' && (
+          <button
+            onClick={() => window.api.queue.remove(item.id)}
+            className="text-xs text-gray-500 hover:text-gray-300 ml-1"
+          >
+            &times;
+          </button>
         )}
       </div>
 
