@@ -148,6 +148,22 @@ export async function startQueue(): Promise<void> {
   processNext()
 }
 
+export async function startItem(id: string): Promise<void> {
+  if (!isEnvReady()) {
+    try {
+      await ensurePythonEnv()
+    } catch {
+      return
+    }
+  }
+  const item = items.find(i => i.id === id)
+  if (item && item.status === 'staged') {
+    item.status = 'pending'
+    emitState()
+    processNext()
+  }
+}
+
 export function retryItem(id: string): void {
   const item = items.find(i => i.id === id)
   if (item && item.status === 'error') {
@@ -184,6 +200,10 @@ export function registerQueueIpc(): void {
 
   ipcMain.on('queue:start', () => {
     startQueue()
+  })
+
+  ipcMain.on('queue:startItem', (_event, id: string) => {
+    startItem(id)
   })
 
   ipcMain.on('queue:retry', (_event, id: string) => {

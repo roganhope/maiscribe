@@ -10,6 +10,7 @@ const api: ElectronAPI = {
     },
     add: (filePaths) => ipcRenderer.send('queue:add', filePaths),
     start: () => ipcRenderer.send('queue:start'),
+    startItem: (id) => ipcRenderer.send('queue:startItem', id),
     retry: (id) => ipcRenderer.send('queue:retry', id),
     cancel: () => ipcRenderer.send('pipeline:cancel'),
     remove: (id) => ipcRenderer.send('queue:remove', id),
@@ -28,6 +29,7 @@ const api: ElectronAPI = {
     list: () => ipcRenderer.invoke('history:list'),
     get: (folderPath) => ipcRenderer.invoke('history:get', folderPath),
     updateTitle: (folderPath, title) => ipcRenderer.invoke('history:updateTitle', folderPath, title),
+    delete: (folderPath) => ipcRenderer.invoke('history:delete', folderPath),
   },
   watcher: {
     toggle: (enabled) => ipcRenderer.send('watcher:toggle', enabled),

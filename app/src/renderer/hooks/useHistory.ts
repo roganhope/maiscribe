@@ -49,6 +49,13 @@ export function useHistory() {
     setDetail(prev => prev && prev.folderPath === folderPath ? { ...prev, title } : prev)
   }, [])
 
+  const deleteRecording = useCallback(async (folderPath: string) => {
+    await window.api.history.delete(folderPath)
+    setRecordings(prev => prev.filter(r => r.folderPath !== folderPath))
+    setSelectedId(null)
+    setDetail(null)
+  }, [])
+
   return {
     recordings,
     selectedId,
@@ -57,6 +64,7 @@ export function useHistory() {
     detailLoading,
     selectRecording,
     updateTitle,
+    deleteRecording,
     refresh,
   }
 }

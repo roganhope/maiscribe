@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync, existsSync, statSync } from 'fs'
+import { readdirSync, readFileSync, writeFileSync, existsSync, statSync, rmSync } from 'fs'
 import { join, extname } from 'path'
 import { ipcMain, protocol, net } from 'electron'
 import { getConfig } from './config'
@@ -146,11 +146,20 @@ export function updateTitle(folderPath: string, title: string): void {
   writeFileSync(summaryPath, JSON.stringify(summary, null, 2), 'utf-8')
 }
 
+export function deleteRecording(folderPath: string): void {
+  if (existsSync(folderPath)) {
+    rmSync(folderPath, { recursive: true })
+  }
+}
+
 export function registerHistoryIpc(): void {
   ipcMain.handle('history:list', () => listRecordings())
   ipcMain.handle('history:get', (_event, folderPath: string) => getRecording(folderPath))
   ipcMain.handle('history:updateTitle', (_event, folderPath: string, title: string) => {
     updateTitle(folderPath, title)
+  })
+  ipcMain.handle('history:delete', (_event, folderPath: string) => {
+    deleteRecording(folderPath)
   })
 }
 

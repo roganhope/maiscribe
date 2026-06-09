@@ -7,6 +7,7 @@ import { TranscriptView } from './TranscriptView'
 interface Props {
   recording: RecordingDetailType
   onUpdateTitle: (folderPath: string, title: string) => void
+  onDelete: (folderPath: string) => void
 }
 
 function formatDate(dateStr: string): string {
@@ -20,13 +21,17 @@ function formatDate(dateStr: string): string {
   }) + ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
-export function RecordingDetail({ recording, onUpdateTitle }: Props) {
+export function RecordingDetail({ recording, onUpdateTitle, onDelete }: Props) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(recording.title)
+  const [showTranscript, setShowTranscript] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     setTitleDraft(recording.title)
     setEditingTitle(false)
+    setShowTranscript(false)
+    setConfirmDelete(false)
   }, [recording.id])
 
   function handleTitleSubmit() {
@@ -90,10 +95,47 @@ export function RecordingDetail({ recording, onUpdateTitle }: Props) {
 
       {recording.transcription.segments.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Transcript</h2>
-          <TranscriptView segments={recording.transcription.segments} />
+          <button
+            onClick={() => setShowTranscript(!showTranscript)}
+            className="flex items-center gap-2 text-sm font-semibold text-gray-400 uppercase tracking-wide hover:text-gray-300"
+          >
+            <span className={`transition-transform ${showTranscript ? 'rotate-90' : ''}`}>&#9654;</span>
+            Transcript
+          </button>
+          {showTranscript && (
+            <div className="mt-4">
+              <TranscriptView segments={recording.transcription.segments} />
+            </div>
+          )}
         </section>
       )}
+
+      <section className="mt-auto pt-6 border-t border-gray-700">
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="text-xs text-red-400 hover:text-red-300"
+          >
+            Delete Recording
+          </button>
+        ) : (
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-red-400">Are you sure? This cannot be undone.</span>
+            <button
+              onClick={() => onDelete(recording.folderPath)}
+              className="text-xs px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-white"
+            >
+              Delete
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="text-xs text-gray-400 hover:text-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </section>
     </div>
   )
 }

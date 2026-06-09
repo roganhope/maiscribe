@@ -41,14 +41,22 @@ export function QueueItem({ item, onOpenHistory }: Props) {
         <span className="flex-1 truncate text-sm text-gray-200">{item.fileName}</span>
 
         {item.status === 'staged' && (
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={`text-xs px-2 py-0.5 rounded transition-colors ${
-              showSettings ? 'bg-gray-600 text-gray-200' : 'bg-gray-700 text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            Options
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`text-xs px-2 py-0.5 rounded transition-colors ${
+                showSettings ? 'bg-gray-600 text-gray-200' : 'bg-gray-700 text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              Options
+            </button>
+            <button
+              onClick={() => window.api.queue.startItem(item.id)}
+              className="text-xs px-2 py-0.5 rounded bg-accent-500/20 text-accent-400 hover:bg-accent-500/30"
+            >
+              Start
+            </button>
+          </div>
         )}
 
         {item.status === 'processing' && (

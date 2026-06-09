@@ -16,6 +16,7 @@ export const HistoryView = forwardRef<HistoryViewHandle>(function HistoryView(_p
     detailLoading,
     selectRecording,
     updateTitle,
+    deleteRecording,
     refresh,
   } = useHistory()
 
@@ -57,7 +58,7 @@ export const HistoryView = forwardRef<HistoryViewHandle>(function HistoryView(_p
           </div>
         )}
         {!detailLoading && detail && (
-          <RecordingDetail recording={detail} onUpdateTitle={updateTitle} />
+          <RecordingDetail recording={detail} onUpdateTitle={updateTitle} onDelete={deleteRecording} />
         )}
         {!detailLoading && !detail && recordings.length > 0 && (
           <div className="flex items-center justify-center h-full text-gray-500 text-sm">

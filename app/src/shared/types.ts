@@ -87,6 +87,7 @@ export interface ElectronAPI {
     onState: (callback: (state: QueueState) => void) => () => void
     add: (filePaths: string[]) => void
     start: () => void
+    startItem: (id: string) => void
     retry: (id: string) => void
     remove: (id: string) => void
     cancel: () => void
@@ -105,6 +106,7 @@ export interface ElectronAPI {
     list: () => Promise<RecordingListItem[]>
     get: (folderPath: string) => Promise<RecordingDetail | null>
     updateTitle: (folderPath: string, title: string) => Promise<void>
+    delete: (folderPath: string) => Promise<void>
   }
   watcher: {
     toggle: (enabled: boolean) => void
