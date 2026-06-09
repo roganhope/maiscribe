@@ -6,7 +6,7 @@ import { SetupWizard } from './components/SetupWizard'
 import { Settings } from './components/Settings'
 import { HistoryView, HistoryViewHandle } from './components/HistoryView'
 
-type Tab = 'process' | 'history' | 'settings'
+type Tab = 'process' | 'history' | 'speakers' | 'settings'
 
 export default function App() {
   const { config, saveConfig, loading } = useConfig()
@@ -45,7 +45,7 @@ export default function App() {
     <div className="flex flex-col h-screen">
       <div className="flex items-center border-b border-gray-700 px-6 pt-8 drag-region">
         <nav className="flex gap-6 no-drag">
-          {(['process', 'history'] as Tab[]).map(t => (
+          {(['process', 'history', 'speakers'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -81,6 +81,11 @@ export default function App() {
       <div className="flex-1 min-h-0">
         {tab === 'process' && <Dashboard onOpenHistory={handleOpenHistory} />}
         {tab === 'history' && <HistoryView ref={historyRef} />}
+        {tab === 'speakers' && (
+          <div className="flex items-center justify-center h-full text-gray-500 text-sm italic">
+            Coming soon
+          </div>
+        )}
         {tab === 'settings' && <Settings />}
       </div>
     </div>
