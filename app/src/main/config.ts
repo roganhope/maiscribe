@@ -14,11 +14,17 @@ export function getConfig(): AppConfig | null {
   if (!existsSync(path)) return null
   const raw = readFileSync(path, 'utf-8')
   const config = JSON.parse(raw)
+  let dirty = false
   if ('deleteAfterProcessing' in (config.pipeline || {})) {
     config.pipeline.audioHandling = config.pipeline.deleteAfterProcessing ? 'delete' : 'store'
     delete config.pipeline.deleteAfterProcessing
-    writeFileSync(path, JSON.stringify(config, null, 2), 'utf-8')
+    dirty = true
   }
+  if ('pythonPath' in config) {
+    delete config.pythonPath
+    dirty = true
+  }
+  if (dirty) writeFileSync(path, JSON.stringify(config, null, 2), 'utf-8')
   return config as AppConfig
 }
 

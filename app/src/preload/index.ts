@@ -40,6 +40,20 @@ const api: ElectronAPI = {
   file: {
     getPath: (file: File) => webUtils.getPathForFile(file),
   },
+  pythonEnv: {
+    onStatus: (callback) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: unknown) => callback(status as any)
+      ipcRenderer.on('python-env:status', handler)
+      return () => { ipcRenderer.removeListener('python-env:status', handler) }
+    },
+    getStatus: () => ipcRenderer.invoke('python-env:status'),
+    ensure: () => ipcRenderer.invoke('python-env:ensure'),
+  },
+  validate: {
+    modal: (tokenId, tokenSecret) => ipcRenderer.invoke('validate:modal', tokenId, tokenSecret),
+    huggingFace: (token) => ipcRenderer.invoke('validate:huggingface', token),
+    claude: (apiKey) => ipcRenderer.invoke('validate:claude', apiKey),
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

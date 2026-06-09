@@ -1,7 +1,6 @@
 export interface AppConfig {
   version: 1
   basePath: string
-  pythonPath: string
   pipeline: {
     audioHandling: 'store' | 'store-and-delete' | 'delete'
     autoWatch: boolean
@@ -78,6 +77,11 @@ export interface QueueItem {
 
 export type QueueState = QueueItem[]
 
+export interface PythonEnvStatus {
+  state: 'idle' | 'downloading' | 'extracting' | 'creating-venv' | 'installing' | 'ready' | 'error'
+  message: string
+}
+
 export interface ElectronAPI {
   queue: {
     onState: (callback: (state: QueueState) => void) => () => void
@@ -112,6 +116,16 @@ export interface ElectronAPI {
   }
   file: {
     getPath: (file: File) => string
+  }
+  pythonEnv: {
+    onStatus: (callback: (status: PythonEnvStatus) => void) => () => void
+    getStatus: () => Promise<PythonEnvStatus>
+    ensure: () => Promise<{ ok: boolean; error?: string }>
+  }
+  validate: {
+    modal: (tokenId: string, tokenSecret: string) => Promise<{ ok: boolean; error?: string }>
+    huggingFace: (token: string) => Promise<{ ok: boolean; error?: string }>
+    claude: (apiKey: string) => Promise<{ ok: boolean; error?: string }>
   }
 }
 

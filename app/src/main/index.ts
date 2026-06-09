@@ -5,6 +5,8 @@ import { registerEnvIpc } from './env'
 import { registerQueueIpc } from './queue'
 import { registerWatcherIpc, initWatcher } from './watcher'
 import { registerHistoryIpc, registerAudioProtocol } from './history'
+import { registerPythonEnvIpc, ensurePythonEnv, onStatusChange } from './python-env'
+import { registerValidateKeysIpc } from './validate-keys'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -36,6 +38,8 @@ app.whenReady().then(() => {
   registerWatcherIpc()
   registerHistoryIpc()
   registerAudioProtocol()
+  registerPythonEnvIpc()
+  registerValidateKeysIpc()
 
   ipcMain.on('shell:openPath', (_event, path: string) => {
     shell.showItemInFolder(path)
@@ -56,6 +60,11 @@ app.whenReady().then(() => {
 
   createWindow()
   initWatcher()
+
+  onStatusChange((status) => {
+    mainWindow?.webContents.send('python-env:status', status)
+  })
+  ensurePythonEnv().catch(() => {})
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

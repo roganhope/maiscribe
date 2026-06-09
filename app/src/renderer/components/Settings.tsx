@@ -48,21 +48,12 @@ export function Settings() {
             Browse
           </button>
         </div>
-        <div className="mt-3">
-          <label className="text-sm text-gray-400">Python path</label>
-          <input
-            type="text"
-            value={draft.pythonPath}
-            onChange={(e) => setDraft({ ...draft, pythonPath: e.target.value })}
-            className="w-full bg-gray-700 rounded px-3 py-2 text-sm mt-1"
-          />
-        </div>
       </section>
 
       <section>
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">API Keys</h2>
         <div className="flex flex-col gap-3">
-          {['MODAL_TOKEN_ID', 'MODAL_TOKEN_SECRET', 'CLAUDE_API_KEY'].map(key => (
+          {['MODAL_TOKEN_ID', 'MODAL_TOKEN_SECRET', 'HF_TOKEN', 'CLAUDE_API_KEY'].map(key => (
             <div key={key}>
               <label className="text-sm text-gray-400">{key}</label>
               <input

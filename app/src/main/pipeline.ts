@@ -3,6 +3,7 @@ import { join } from 'path'
 import { mkdirSync } from 'fs'
 import { getConfig, getProjectRoot } from './config'
 import { getEnvVars } from './env'
+import { getPythonPath } from './python-env'
 import type { QueueItemOptions } from '../shared/types'
 
 export interface PipelineCallbacks {
@@ -15,7 +16,7 @@ let currentProcess: ChildProcess | null = null
 
 export function runPipeline(filePath: string, callbacks: PipelineCallbacks, itemOptions?: QueueItemOptions): void {
   const config = getConfig()
-  const pythonPath = config?.pythonPath || 'python3'
+  const pythonPath = getPythonPath()
   const projectRoot = getProjectRoot()
   const transcriptPath = join(projectRoot, 'transcribe.py')
   const envVars = getEnvVars()

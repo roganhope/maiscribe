@@ -4,6 +4,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import type { QueueItem, QueueItemOptions, QueueState } from '../shared/types'
 import { getConfig } from './config'
 import { runPipeline, cancelPipeline } from './pipeline'
+import { ensurePythonEnv, isEnvReady } from './python-env'
 
 const BITRATE_ESTIMATES: Record<string, number> = {
   '.m4a': 16000,
@@ -130,7 +131,14 @@ export function addToQueue(filePaths: string[]): void {
   emitState()
 }
 
-export function startQueue(): void {
+export async function startQueue(): Promise<void> {
+  if (!isEnvReady()) {
+    try {
+      await ensurePythonEnv()
+    } catch {
+      return
+    }
+  }
   for (const item of items) {
     if (item.status === 'staged') {
       item.status = 'pending'

@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useConfig } from './hooks/useConfig'
+import { usePythonEnv } from './hooks/usePythonEnv'
 import { Dashboard } from './components/Dashboard'
 import { SetupWizard } from './components/SetupWizard'
 import { Settings } from './components/Settings'
@@ -9,6 +10,7 @@ type Tab = 'process' | 'history' | 'settings'
 
 export default function App() {
   const { config, saveConfig, loading } = useConfig()
+  const pythonEnv = usePythonEnv()
   const [tab, setTab] = useState<Tab>('process')
   const [wizardDone, setWizardDone] = useState(false)
   const historyRef = useRef<HistoryViewHandle>(null)
@@ -69,6 +71,12 @@ export default function App() {
           Settings
         </button>
       </div>
+
+      {pythonEnv.state !== 'ready' && pythonEnv.state !== 'idle' && (
+        <div className={`px-6 py-2 text-sm ${pythonEnv.state === 'error' ? 'bg-red-900/50 text-red-300' : 'bg-gray-800 text-gray-400'}`}>
+          {pythonEnv.state === 'error' ? `Setup error: ${pythonEnv.message}` : pythonEnv.message}
+        </div>
+      )}
 
       <div className="flex-1 min-h-0">
         {tab === 'process' && <Dashboard onOpenHistory={handleOpenHistory} />}

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { AppConfig } from '../../shared/types'
 
-type Step = 'folder' | 'keys' | 'options' | 'done'
+type Step = 'folder' | 'modal' | 'huggingface' | 'claude' | 'options' | 'done'
+const STEPS: Step[] = ['folder', 'modal', 'huggingface', 'claude', 'options', 'done']
 
 interface Props {
   onComplete: (config: AppConfig) => void
@@ -10,24 +11,54 @@ interface Props {
 export function SetupWizard({ onComplete }: Props) {
   const [step, setStep] = useState<Step>('folder')
   const [basePath, setBasePath] = useState('')
-  const [pythonPath, setPythonPath] = useState('python3')
   const [modalTokenId, setModalTokenId] = useState('')
   const [modalTokenSecret, setModalTokenSecret] = useState('')
+  const [hfToken, setHfToken] = useState('')
   const [claudeApiKey, setClaudeApiKey] = useState('')
   const [audioHandling, setAudioHandling] = useState<'store' | 'store-and-delete' | 'delete'>('store')
   const [autoWatch, setAutoWatch] = useState(true)
   const [autoSummarize, setAutoSummarize] = useState(true)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
 
   async function selectFolder() {
     const path = await window.api.dialog.selectDirectory()
     if (path) setBasePath(path)
   }
 
+  function resetTest() {
+    setTestResult(null)
+    setTesting(false)
+  }
+
+  async function testModal() {
+    setTesting(true)
+    setTestResult(null)
+    const result = await window.api.validate.modal(modalTokenId, modalTokenSecret)
+    setTestResult(result)
+    setTesting(false)
+  }
+
+  async function testHuggingFace() {
+    setTesting(true)
+    setTestResult(null)
+    const result = await window.api.validate.huggingFace(hfToken)
+    setTestResult(result)
+    setTesting(false)
+  }
+
+  async function testClaude() {
+    setTesting(true)
+    setTestResult(null)
+    const result = await window.api.validate.claude(claudeApiKey)
+    setTestResult(result)
+    setTesting(false)
+  }
+
   async function finish() {
     const config: AppConfig = {
       version: 1,
       basePath,
-      pythonPath,
       pipeline: {
         audioHandling,
         autoWatch,
@@ -41,26 +72,32 @@ export function SetupWizard({ onComplete }: Props) {
     }
 
     await window.api.config.set(config)
-    await window.api.env.set({
-      MODAL_TOKEN_ID: modalTokenId,
-      MODAL_TOKEN_SECRET: modalTokenSecret,
-      CLAUDE_API_KEY: claudeApiKey,
-    })
+    const envVars: Record<string, string> = {}
+    if (modalTokenId) envVars.MODAL_TOKEN_ID = modalTokenId
+    if (modalTokenSecret) envVars.MODAL_TOKEN_SECRET = modalTokenSecret
+    if (hfToken) envVars.HF_TOKEN = hfToken
+    if (claudeApiKey) envVars.CLAUDE_API_KEY = claudeApiKey
+    if (Object.keys(envVars).length) await window.api.env.set(envVars)
 
     onComplete(config)
   }
+
+  function goNext(next: Step) {
+    resetTest()
+    setStep(next)
+  }
+
+  const stepIndex = STEPS.indexOf(step)
 
   return (
     <div className="fixed inset-0 bg-gray-900/95 flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-2xl p-8 w-full max-w-lg shadow-2xl">
         <div className="flex gap-2 mb-8">
-          {(['folder', 'keys', 'options', 'done'] as Step[]).map((s, i) => (
+          {STEPS.map((_, i) => (
             <div
-              key={s}
+              key={i}
               className={`h-1 flex-1 rounded ${
-                i <= ['folder', 'keys', 'options', 'done'].indexOf(step)
-                  ? 'bg-accent-400'
-                  : 'bg-gray-700'
+                i <= stepIndex ? 'bg-accent-400' : 'bg-gray-700'
               }`}
             />
           ))}
@@ -87,17 +124,8 @@ export function SetupWizard({ onComplete }: Props) {
                 Browse
               </button>
             </div>
-            <div className="mt-4">
-              <label className="text-sm text-gray-400">Python path</label>
-              <input
-                type="text"
-                value={pythonPath}
-                onChange={(e) => setPythonPath(e.target.value)}
-                className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 mt-1"
-              />
-            </div>
             <button
-              onClick={() => setStep('keys')}
+              onClick={() => goNext('modal')}
               disabled={!basePath}
               className="mt-6 w-full py-2 bg-accent-500 hover:bg-accent-600 disabled:opacity-40 rounded font-medium"
             >
@@ -106,53 +134,176 @@ export function SetupWizard({ onComplete }: Props) {
           </div>
         )}
 
-        {step === 'keys' && (
+        {step === 'modal' && (
           <div>
-            <h2 className="text-lg font-semibold mb-4">API Keys</h2>
+            <h2 className="text-lg font-semibold mb-2">Modal</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              Modal runs the transcription pipeline in the cloud. You need a token pair to authenticate.
+            </p>
+            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-1">
+              <li>Go to <span className="text-gray-200">modal.com/settings</span></li>
+              <li>Click "New Token" under API Tokens</li>
+              <li>Copy the Token ID and Token Secret below</li>
+            </ol>
             <div className="flex flex-col gap-3">
               <div>
-                <label className="text-sm text-gray-400">Modal Token ID</label>
+                <label className="text-sm text-gray-400">Token ID</label>
                 <input
                   type="password"
                   value={modalTokenId}
-                  onChange={(e) => setModalTokenId(e.target.value)}
+                  onChange={(e) => { setModalTokenId(e.target.value); resetTest() }}
                   className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 mt-1"
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-400">Modal Token Secret</label>
+                <label className="text-sm text-gray-400">Token Secret</label>
                 <input
                   type="password"
                   value={modalTokenSecret}
-                  onChange={(e) => setModalTokenSecret(e.target.value)}
-                  className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-400">Claude API Key</label>
-                <input
-                  type="password"
-                  value={claudeApiKey}
-                  onChange={(e) => setClaudeApiKey(e.target.value)}
+                  onChange={(e) => { setModalTokenSecret(e.target.value); resetTest() }}
                   className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 mt-1"
                 />
               </div>
             </div>
+
+            <TestResult testing={testing} result={testResult} />
+
             <div className="flex gap-2 mt-6">
               <button
-                onClick={() => setStep('folder')}
+                onClick={() => goNext('folder')}
                 className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium"
               >
                 Back
               </button>
               <button
-                onClick={() => setStep('options')}
-                disabled={!modalTokenId || !modalTokenSecret}
+                onClick={testModal}
+                disabled={!modalTokenId || !modalTokenSecret || testing}
+                className="flex-1 py-2 bg-gray-600 hover:bg-gray-500 disabled:opacity-40 rounded font-medium"
+              >
+                {testing ? 'Testing...' : 'Test Connection'}
+              </button>
+              <button
+                onClick={() => goNext('huggingface')}
+                disabled={!testResult?.ok}
                 className="flex-1 py-2 bg-accent-500 hover:bg-accent-600 disabled:opacity-40 rounded font-medium"
               >
                 Next
               </button>
             </div>
+            <button
+              onClick={() => goNext('huggingface')}
+              className="mt-2 w-full text-center text-sm text-gray-500 hover:text-gray-400"
+            >
+              Set up later
+            </button>
+          </div>
+        )}
+
+        {step === 'huggingface' && (
+          <div>
+            <h2 className="text-lg font-semibold mb-2">Hugging Face</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              Required for speaker diarization (identifying who said what). The pyannote model needs a Hugging Face access token.
+            </p>
+            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-1">
+              <li>Go to <span className="text-gray-200">huggingface.co/settings/tokens</span></li>
+              <li>Create a new token with "Read" access</li>
+              <li>Accept the pyannote model terms at <span className="text-gray-200">huggingface.co/pyannote/speaker-diarization-3.1</span></li>
+            </ol>
+            <div>
+              <label className="text-sm text-gray-400">Access Token</label>
+              <input
+                type="password"
+                value={hfToken}
+                onChange={(e) => { setHfToken(e.target.value); resetTest() }}
+                className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 mt-1"
+              />
+            </div>
+
+            <TestResult testing={testing} result={testResult} />
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => goNext('modal')}
+                className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium"
+              >
+                Back
+              </button>
+              <button
+                onClick={testHuggingFace}
+                disabled={!hfToken || testing}
+                className="flex-1 py-2 bg-gray-600 hover:bg-gray-500 disabled:opacity-40 rounded font-medium"
+              >
+                {testing ? 'Testing...' : 'Test Connection'}
+              </button>
+              <button
+                onClick={() => goNext('claude')}
+                disabled={!testResult?.ok}
+                className="flex-1 py-2 bg-accent-500 hover:bg-accent-600 disabled:opacity-40 rounded font-medium"
+              >
+                Next
+              </button>
+            </div>
+            <button
+              onClick={() => goNext('claude')}
+              className="mt-2 w-full text-center text-sm text-gray-500 hover:text-gray-400"
+            >
+              Set up later
+            </button>
+          </div>
+        )}
+
+        {step === 'claude' && (
+          <div>
+            <h2 className="text-lg font-semibold mb-2">Claude API</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              Used to generate meeting summaries from transcriptions. Without this, transcription still works but summaries will be skipped.
+            </p>
+            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-1">
+              <li>Go to <span className="text-gray-200">console.anthropic.com/settings/keys</span></li>
+              <li>Click "Create Key"</li>
+              <li>Copy the key below</li>
+            </ol>
+            <div>
+              <label className="text-sm text-gray-400">API Key</label>
+              <input
+                type="password"
+                value={claudeApiKey}
+                onChange={(e) => { setClaudeApiKey(e.target.value); resetTest() }}
+                className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 mt-1"
+              />
+            </div>
+
+            <TestResult testing={testing} result={testResult} />
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => goNext('huggingface')}
+                className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium"
+              >
+                Back
+              </button>
+              <button
+                onClick={testClaude}
+                disabled={!claudeApiKey || testing}
+                className="flex-1 py-2 bg-gray-600 hover:bg-gray-500 disabled:opacity-40 rounded font-medium"
+              >
+                {testing ? 'Testing...' : 'Test Connection'}
+              </button>
+              <button
+                onClick={() => goNext('options')}
+                disabled={!testResult?.ok}
+                className="flex-1 py-2 bg-accent-500 hover:bg-accent-600 disabled:opacity-40 rounded font-medium"
+              >
+                Next
+              </button>
+            </div>
+            <button
+              onClick={() => goNext('options')}
+              className="mt-2 w-full text-center text-sm text-gray-500 hover:text-gray-400"
+            >
+              Set up later
+            </button>
           </div>
         )}
 
@@ -193,7 +344,7 @@ export function SetupWizard({ onComplete }: Props) {
             </div>
             <div className="flex gap-2 mt-6">
               <button
-                onClick={() => setStep('keys')}
+                onClick={() => goNext('claude')}
                 className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium"
               >
                 Back
@@ -212,9 +363,26 @@ export function SetupWizard({ onComplete }: Props) {
           <div className="text-center">
             <h2 className="text-lg font-semibold mb-2">All set!</h2>
             <p className="text-sm text-gray-400">Your pipeline is configured and ready to use.</p>
+            {(!modalTokenId || !hfToken) && (
+              <p className="text-sm text-yellow-400 mt-3">
+                Note: Transcription requires Modal and Hugging Face tokens. You can add them in Settings.
+              </p>
+            )}
+            {!claudeApiKey && (
+              <p className="text-sm text-yellow-400 mt-2">
+                Summarization is disabled until you add a Claude API key in Settings.
+              </p>
+            )}
           </div>
         )}
       </div>
     </div>
   )
+}
+
+function TestResult({ testing, result }: { testing: boolean; result: { ok: boolean; error?: string } | null }) {
+  if (testing) return <p className="mt-3 text-sm text-gray-400">Testing connection...</p>
+  if (!result) return null
+  if (result.ok) return <p className="mt-3 text-sm text-green-400">Connected successfully</p>
+  return <p className="mt-3 text-sm text-red-400">{result.error || 'Connection failed'}</p>
 }
