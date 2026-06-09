@@ -114,12 +114,9 @@ export function QueueItem({ item, onOpenHistory }: Props) {
 
       {item.status === 'processing' && (
         <div className="px-4 pb-3 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-400">
-              {getProgressLabel(item)}<span className="animate-ellipsis" />
-            </span>
-            <span className="text-xs text-gray-500">{percent}%</span>
-          </div>
+          <span className="text-xs text-gray-400">
+            {getProgressLabel(item)}<span className="animate-ellipsis" />
+          </span>
           <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-accent-500 rounded-full transition-all duration-1000 ease-linear"
