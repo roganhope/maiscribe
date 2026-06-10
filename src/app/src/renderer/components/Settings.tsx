@@ -30,27 +30,18 @@ export function Settings({ onOpenWizard }: SettingsProps) {
     await saveConfig(draft)
     if (Object.values(newEnv).some(Boolean)) {
       await window.api.env.set(newEnv)
-      if (newEnv.HF_TOKEN) {
-        const modalId = newEnv.MODAL_TOKEN_ID || envKeys.MODAL_TOKEN_ID
-        const modalSecret = newEnv.MODAL_TOKEN_SECRET || envKeys.MODAL_TOKEN_SECRET
-        if (modalId && modalSecret) {
-          setSyncing(true)
-          const result = await window.api.validate.syncModalSecret(newEnv.HF_TOKEN, modalId, modalSecret)
-          setSyncStatus(result)
-          setSyncing(false)
-        }
-      }
+    }
+    const hfToken = newEnv.HF_TOKEN || envKeys.HF_TOKEN
+    const modalId = newEnv.MODAL_TOKEN_ID || envKeys.MODAL_TOKEN_ID
+    const modalSecret = newEnv.MODAL_TOKEN_SECRET || envKeys.MODAL_TOKEN_SECRET
+    if (hfToken && modalId && modalSecret) {
+      setSyncing(true)
+      const result = await window.api.validate.syncModalSecret(hfToken, modalId, modalSecret)
+      setSyncStatus(result)
+      setSyncing(false)
     }
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
-  }
-
-  async function handleSyncSecret() {
-    setSyncing(true)
-    setSyncStatus(null)
-    const result = await window.api.validate.syncModalSecretFromEnv()
-    setSyncStatus(result)
-    setSyncing(false)
   }
 
   async function selectFolder() {
@@ -118,13 +109,6 @@ export function Settings({ onOpenWizard }: SettingsProps) {
                 </div>
               ))}
             </div>
-            <button
-              onClick={handleSyncSecret}
-              disabled={syncing}
-              className="mt-3 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 rounded text-xs text-gray-300"
-            >
-              {syncing ? 'Syncing...' : 'Sync HF token to Modal cloud'}
-            </button>
             {syncStatus && (
               <p className={`mt-2 text-xs ${syncStatus.ok ? 'text-green-400' : 'text-red-400'}`}>
                 {syncStatus.ok ? 'Synced to Modal' : syncStatus.error}
