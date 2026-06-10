@@ -51,6 +51,7 @@ export interface RecordingDetail {
     }>
     language: string
     duration: number
+    speakerMap: Record<string, string>
   }
 }
 
@@ -80,6 +81,29 @@ export type QueueState = QueueItem[]
 export interface PythonEnvStatus {
   state: 'idle' | 'downloading' | 'extracting' | 'creating-venv' | 'installing' | 'ready' | 'error'
   message: string
+}
+
+export interface SpeakerAppearance {
+  recordingId: string
+  originalLabel: string
+}
+
+export interface Speaker {
+  id: string
+  name: string | null
+  notes: string | null
+  createdAt: string
+  enrolledOnModal: boolean
+  embedding: number[]
+  appearances: SpeakerAppearance[]
+}
+
+export interface SpeakerClip {
+  speakerId: string
+  recordingId: string
+  filePath: string
+  start: number
+  end: number
 }
 
 export interface ElectronAPI {
@@ -133,6 +157,16 @@ export interface ElectronAPI {
     claude: (apiKey: string) => Promise<{ ok: boolean; error?: string }>
     syncModalSecret: (hfToken: string, modalTokenId: string, modalTokenSecret: string) => Promise<{ ok: boolean; error?: string }>
     syncModalSecretFromEnv: () => Promise<{ ok: boolean; error?: string }>
+  }
+  speakers: {
+    list: () => Promise<Speaker[]>
+    get: (id: string) => Promise<Speaker | null>
+    rename: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>
+    unassign: (id: string) => Promise<void>
+    updateNotes: (id: string, notes: string) => Promise<void>
+    merge: (keepId: string, removeId: string) => Promise<void>
+    delete: (id: string) => Promise<void>
+    getClips: (id: string) => Promise<SpeakerClip[]>
   }
 }
 
