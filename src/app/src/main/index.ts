@@ -17,6 +17,7 @@ function createWindow() {
     minWidth: 600,
     minHeight: 500,
     titleBarStyle: 'hiddenInset',
+    icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -32,6 +33,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
+  }
   migrateFromRepoRoot()
   ensureDataDirs()
   registerConfigIpc()
