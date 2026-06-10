@@ -48,6 +48,34 @@ def collect_from_folder(folder: Path) -> list[Path]:
     )
 
 
+def _map_with_errors(
+    valid_files: list[Path], bytes_list: list[bytes], name_list: list[str]
+) -> list[tuple[Path, dict]]:
+    """Wrap transcribe_audio.map so individual execution errors become error results."""
+    from modal_app import transcribe_audio
+
+    results: list[tuple[Path, dict]] = []
+    for file_path, result in zip(valid_files, transcribe_audio.map(bytes_list, name_list)):
+        results.append((file_path, result))
+    return results
+
+
+def _format_modal_error(exc: Exception) -> str:
+    """Extract a user-friendly message from Modal/remote exceptions."""
+    msg = str(exc)
+    if "GatedRepoError" in msg or "401" in msg:
+        return "HuggingFace token is invalid or lacks access to the required model. Update your HF token in Settings."
+    if "MODAL_TOKEN" in msg or "AuthError" in msg:
+        return "Modal authentication failed. Check your Modal credentials in Settings."
+    if "ExecutionError" in msg:
+        lines = msg.strip().splitlines()
+        for line in reversed(lines):
+            line = line.strip()
+            if line and not line.startswith("File ") and not line.startswith("Traceback"):
+                return f"Remote error: {line}"
+    return f"Pipeline error: {msg[:200]}"
+
+
 def run_enroll(json_path: Path):
     from modal_app import app, enroll_speaker
 
@@ -233,7 +261,7 @@ def main():
         OUTBOX_DIR = args.outbox
         OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
 
-    from modal_app import app, transcribe_audio
+    from modal_app import app
 
     if args.folder is not None:
         if not args.folder.is_dir():
@@ -260,54 +288,59 @@ def main():
     bytes_list = [p.read_bytes() for p in valid_files]
     name_list = [p.name for p in valid_files]
 
-    with app.run():
-        for file_path, result in zip(valid_files, transcribe_audio.map(bytes_list, name_list)):
-            try:
-                print(f"[step] Transcribing", flush=True)
-                if result["ok"]:
-                    out_folder = make_outbox_folder(file_path)
+    try:
+        with app.run():
+            results = _map_with_errors(valid_files, bytes_list, name_list)
+            for file_path, result in results:
+                try:
+                    print(f"[step] Transcribing", flush=True)
+                    if result["ok"]:
+                        out_folder = make_outbox_folder(file_path)
 
-                    # Save speaker clips
-                    clips_data = result["result"].get("speaker_clips", {})
-                    if clips_data:
-                        import base64
-                        clips_dir = out_folder / "speakers"
-                        clips_dir.mkdir(exist_ok=True)
-                        for speaker_label, clips in clips_data.items():
-                            for idx, clip in enumerate(clips, 1):
-                                clip_path = clips_dir / f"{speaker_label}_clip{idx}.wav"
-                                clip_path.write_bytes(base64.b64decode(clip["wav_base64"]))
+                        # Save speaker clips
+                        clips_data = result["result"].get("speaker_clips", {})
+                        if clips_data:
+                            import base64
+                            clips_dir = out_folder / "speakers"
+                            clips_dir.mkdir(exist_ok=True)
+                            for speaker_label, clips in clips_data.items():
+                                for idx, clip in enumerate(clips, 1):
+                                    clip_path = clips_dir / f"{speaker_label}_clip{idx}.wav"
+                                    clip_path.write_bytes(base64.b64decode(clip["wav_base64"]))
 
-                    # Strip base64 clip data before saving (clips saved as separate files)
-                    result_to_save = {**result["result"]}
-                    result_to_save.pop("speaker_clips", None)
-                    json_path = out_folder / f"{file_path.stem}.json"
-                    json_path.write_text(
-                        json.dumps(result_to_save, indent=2, ensure_ascii=False),
-                        encoding="utf-8",
-                    )
-                    if args.audio_handling == 'store':
-                        shutil.copy2(file_path, out_folder / file_path.name)
-                    elif args.audio_handling == 'store-and-delete':
-                        shutil.move(str(file_path), str(out_folder / file_path.name))
+                        # Strip base64 clip data before saving (clips saved as separate files)
+                        result_to_save = {**result["result"]}
+                        result_to_save.pop("speaker_clips", None)
+                        json_path = out_folder / f"{file_path.stem}.json"
+                        json_path.write_text(
+                            json.dumps(result_to_save, indent=2, ensure_ascii=False),
+                            encoding="utf-8",
+                        )
+                        if args.audio_handling == 'store':
+                            shutil.copy2(file_path, out_folder / file_path.name)
+                        elif args.audio_handling == 'store-and-delete':
+                            shutil.move(str(file_path), str(out_folder / file_path.name))
+                        else:
+                            file_path.unlink()
+                        speakers = {s.get("speaker") for s in result["result"]["segments"]}
+                        unknown = [s for s in speakers if s and s.startswith("SPEAKER_")]
+                        label = f" (unknown speakers: {', '.join(sorted(unknown))})" if unknown else ""
+                        print(f"[done] {file_path.name} → {out_folder}{label}")
+                        if not args.no_summary:
+                            print(f"[step] Summarizing", flush=True)
+                            from summarize import summarize_file
+                            summarize_file(json_path)
                     else:
-                        file_path.unlink()
-                    speakers = {s.get("speaker") for s in result["result"]["segments"]}
-                    unknown = [s for s in speakers if s and s.startswith("SPEAKER_")]
-                    label = f" (unknown speakers: {', '.join(sorted(unknown))})" if unknown else ""
-                    print(f"[done] {file_path.name} → {out_folder}{label}")
-                    if not args.no_summary:
-                        print(f"[step] Summarizing", flush=True)
-                        from summarize import summarize_file
-                        summarize_file(json_path)
-                else:
-                    write_error_log(file_path, result["error"], result.get("traceback"))
-                    print(f"[error] {file_path.name}: {result['error']}")
-                    if result.get("traceback"):
-                        print(result["traceback"])
-            except Exception as exc:
-                write_error_log(file_path, str(exc))
-                print(f"[error] {file_path.name}: {exc}")
+                        write_error_log(file_path, result["error"], result.get("traceback"))
+                        print(f"[error] {file_path.name}: {result['error']}")
+                except Exception as exc:
+                    write_error_log(file_path, str(exc))
+                    print(f"[error] {file_path.name}: {exc}")
+    except Exception as exc:
+        error_msg = _format_modal_error(exc)
+        for file_path in valid_files:
+            write_error_log(file_path, error_msg)
+        print(f"[error] {error_msg}")
 
 
 if __name__ == "__main__":
