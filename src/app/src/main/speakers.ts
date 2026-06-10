@@ -1,0 +1,266 @@
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs'
+import { join } from 'path'
+import { app, ipcMain } from 'electron'
+import { randomBytes } from 'crypto'
+import { spawn } from 'child_process'
+import { getConfig, getSourceRoot } from './config'
+import { getEnvVars } from './env'
+import { getPythonPath } from './python-env'
+import type { Speaker, SpeakerAppearance, SpeakerClip } from '../shared/types'
+
+interface SpeakerStore {
+  speakers: Record<string, Speaker>
+}
+
+function storePath(): string {
+  return join(app.getPath('userData'), 'speakers.json')
+}
+
+function readStore(): SpeakerStore {
+  const path = storePath()
+  if (!existsSync(path)) return { speakers: {} }
+  return JSON.parse(readFileSync(path, 'utf-8'))
+}
+
+function writeStore(store: SpeakerStore): void {
+  mkdirSync(app.getPath('userData'), { recursive: true })
+  writeFileSync(storePath(), JSON.stringify(store, null, 2), 'utf-8')
+}
+
+function generateId(): string {
+  return 'sp_' + randomBytes(6).toString('hex')
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, normA = 0, normB = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]
+    normA += a[i] * a[i]
+    normB += b[i] * b[i]
+  }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB))
+}
+
+const SIMILARITY_THRESHOLD = 0.85
+
+export function matchSpeakerEmbedding(embedding: number[]): Speaker | null {
+  const store = readStore()
+  let bestSpeaker: Speaker | null = null
+  let bestScore = 0
+  for (const speaker of Object.values(store.speakers)) {
+    const score = cosineSimilarity(embedding, speaker.embedding)
+    if (score > bestScore) {
+      bestScore = score
+      bestSpeaker = speaker
+    }
+  }
+  return bestScore >= SIMILARITY_THRESHOLD ? bestSpeaker : null
+}
+
+export function registerNewSpeakers(
+  recordingId: string,
+  embeddings: Record<string, number[]>
+): Record<string, string> {
+  const store = readStore()
+  const labelToSpeakerId: Record<string, string> = {}
+
+  for (const [label, embedding] of Object.entries(embeddings)) {
+    const match = matchSpeakerEmbedding(embedding)
+    if (match) {
+      const alreadyAppeared = match.appearances.some(a => a.recordingId === recordingId)
+      if (!alreadyAppeared) {
+        match.appearances.push({ recordingId, originalLabel: label })
+      }
+      labelToSpeakerId[label] = match.id
+    } else {
+      const id = generateId()
+      const newSpeaker: Speaker = {
+        id,
+        name: null,
+        notes: null,
+        createdAt: new Date().toISOString(),
+        enrolledOnModal: false,
+        embedding,
+        appearances: [{ recordingId, originalLabel: label }],
+      }
+      store.speakers[id] = newSpeaker
+      labelToSpeakerId[label] = id
+    }
+  }
+
+  writeStore(store)
+  return labelToSpeakerId
+}
+
+function runModalCommand(args: string[]): Promise<{ ok: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    const pythonPath = getPythonPath()
+    const sourceRoot = getSourceRoot()
+    const transcriptPath = join(sourceRoot, 'transcribe.py')
+    const envVars = getEnvVars()
+
+    const proc = spawn(pythonPath, [transcriptPath, ...args], {
+      cwd: sourceRoot,
+      env: { ...process.env, ...envVars },
+    })
+
+    let stdout = ''
+    let stderr = ''
+    proc.stdout?.on('data', (d: Buffer) => { stdout += d.toString() })
+    proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ ok: true })
+      } else {
+        resolve({ ok: false, error: stderr.trim() || stdout.trim() || `exit code ${code}` })
+      }
+    })
+  })
+}
+
+export async function renameSpeaker(id: string, name: string): Promise<{ ok: boolean; error?: string }> {
+  const store = readStore()
+  const speaker = store.speakers[id]
+  if (!speaker) return { ok: false, error: 'speaker not found' }
+
+  const oldName = speaker.name
+  speaker.name = name
+  writeStore(store)
+
+  if (oldName && speaker.enrolledOnModal) {
+    await runModalCommand(['--unenroll', oldName])
+  }
+
+  const embeddingJson = JSON.stringify(speaker.embedding)
+  const result = await runModalCommand(['--enroll-single', name, embeddingJson])
+  if (result.ok) {
+    speaker.enrolledOnModal = true
+    writeStore(store)
+  }
+  return result
+}
+
+export async function unassignSpeaker(id: string): Promise<void> {
+  const store = readStore()
+  const speaker = store.speakers[id]
+  if (!speaker) return
+
+  if (speaker.name && speaker.enrolledOnModal) {
+    await runModalCommand(['--unenroll', speaker.name])
+  }
+
+  speaker.name = null
+  speaker.enrolledOnModal = false
+  writeStore(store)
+}
+
+export function updateSpeakerNotes(id: string, notes: string): void {
+  const store = readStore()
+  const speaker = store.speakers[id]
+  if (!speaker) return
+  speaker.notes = notes
+  writeStore(store)
+}
+
+export async function mergeSpeakers(keepId: string, removeId: string): Promise<void> {
+  const store = readStore()
+  const keep = store.speakers[keepId]
+  const remove = store.speakers[removeId]
+  if (!keep || !remove) return
+
+  keep.embedding = keep.embedding.map((v, i) => (v + remove.embedding[i]) / 2)
+
+  for (const app of remove.appearances) {
+    const exists = keep.appearances.some(
+      a => a.recordingId === app.recordingId && a.originalLabel === app.originalLabel
+    )
+    if (!exists) keep.appearances.push(app)
+  }
+
+  if (remove.name && remove.enrolledOnModal) {
+    await runModalCommand(['--unenroll', remove.name])
+  }
+
+  delete store.speakers[removeId]
+  writeStore(store)
+}
+
+export async function deleteSpeaker(id: string): Promise<void> {
+  const store = readStore()
+  const speaker = store.speakers[id]
+  if (!speaker) return
+
+  if (speaker.name && speaker.enrolledOnModal) {
+    await runModalCommand(['--unenroll', speaker.name])
+  }
+
+  delete store.speakers[id]
+  writeStore(store)
+}
+
+export function getSpeakerClips(id: string): SpeakerClip[] {
+  const store = readStore()
+  const speaker = store.speakers[id]
+  if (!speaker) return []
+
+  const config = getConfig()
+  if (!config) return []
+  const outboxPath = join(config.basePath, 'outbox')
+
+  const clips: SpeakerClip[] = []
+  for (const appearance of speaker.appearances) {
+    const clipsDir = join(outboxPath, appearance.recordingId, 'speakers')
+    if (!existsSync(clipsDir)) continue
+    try {
+      const files = readdirSync(clipsDir).filter(
+        f => f.startsWith(appearance.originalLabel + '_clip') && f.endsWith('.wav')
+      )
+      for (const file of files) {
+        clips.push({
+          speakerId: id,
+          recordingId: appearance.recordingId,
+          filePath: join(clipsDir, file),
+          start: 0,
+          end: 0,
+        })
+      }
+    } catch {}
+  }
+  return clips
+}
+
+export function getSpeakerMap(recordingId: string): Record<string, string> {
+  const store = readStore()
+  const map: Record<string, string> = {}
+  for (const speaker of Object.values(store.speakers)) {
+    for (const appearance of speaker.appearances) {
+      if (appearance.recordingId === recordingId) {
+        map[appearance.originalLabel] = speaker.id
+      }
+    }
+  }
+  return map
+}
+
+export function listSpeakers(): Speaker[] {
+  const store = readStore()
+  return Object.values(store.speakers)
+}
+
+export function getSpeaker(id: string): Speaker | null {
+  const store = readStore()
+  return store.speakers[id] || null
+}
+
+export function registerSpeakersIpc(): void {
+  ipcMain.handle('speakers:list', () => listSpeakers())
+  ipcMain.handle('speakers:get', (_event, id: string) => getSpeaker(id))
+  ipcMain.handle('speakers:rename', (_event, id: string, name: string) => renameSpeaker(id, name))
+  ipcMain.handle('speakers:unassign', (_event, id: string) => unassignSpeaker(id))
+  ipcMain.handle('speakers:updateNotes', (_event, id: string, notes: string) => {
+    updateSpeakerNotes(id, notes)
+  })
+  ipcMain.handle('speakers:merge', (_event, keepId: string, removeId: string) => mergeSpeakers(keepId, removeId))
+  ipcMain.handle('speakers:delete', (_event, id: string) => deleteSpeaker(id))
+  ipcMain.handle('speakers:getClips', (_event, id: string) => getSpeakerClips(id))
+}
