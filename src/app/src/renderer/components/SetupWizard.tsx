@@ -461,7 +461,17 @@ function HfTestResult({ testing, result }: { testing: boolean; result: { ok: boo
           <span className={ok ? 'text-green-400' : 'text-red-400'}>{ok ? '✓' : '✗'}</span>
           <div>
             <span className={ok ? 'text-green-400' : 'text-red-400'}>{model.split('/')[1]}</span>
-            {!ok && error && <p className="text-xs text-red-400 mt-0.5">{error}</p>}
+            {!ok && (
+              <p className="text-xs text-red-400 mt-0.5">
+                {error}{' '}
+                <button
+                  onClick={() => window.api.shell.openExternal(`https://huggingface.co/${model}`)}
+                  className="text-accent-400 hover:text-accent-300 underline"
+                >
+                  Accept license →
+                </button>
+              </p>
+            )}
           </div>
         </div>
       ))}

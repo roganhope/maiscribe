@@ -62,19 +62,21 @@ const HF_REQUIRED_MODELS = [
 ]
 
 async function checkModelAccess(token: string, model: string): Promise<{ ok: boolean; error?: string }> {
-  const res = await httpsJson({
-    hostname: 'huggingface.co',
-    path: `/api/models/${model}`,
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
-  if (res.status === 200) return { ok: true }
-  if (res.status === 401) return { ok: false, error: `Invalid token` }
-  if (res.status === 403) return { ok: false, error: `Access denied for ${model} — accept the license on the model page` }
-  if (res.status === 404) return { ok: false, error: `Model not found: ${model}` }
-  return { ok: false, error: `${model}: unexpected response (${res.status})` }
+  for (const file of ['config.yaml', 'config.json']) {
+    const res = await httpsJson({
+      hostname: 'huggingface.co',
+      path: `/${model}/resolve/main/${file}`,
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+    if (res.status === 200 || res.status === 307) return { ok: true }
+    if (res.status === 401) return { ok: false, error: `Invalid token` }
+    if (res.status === 403) return { ok: false, error: `Access denied — accept the license at huggingface.co/${model}` }
+    if (res.status === 404) continue
+  }
+  return { ok: false, error: `Could not verify access for ${model}` }
 }
 
 interface HfValidationResult extends ValidationResult {
@@ -83,14 +85,6 @@ interface HfValidationResult extends ValidationResult {
 
 async function validateHuggingFace(token: string): Promise<HfValidationResult> {
   try {
-    const whoami = await httpsJson({
-      hostname: 'huggingface.co',
-      path: '/api/whoami',
-      method: 'GET',
-      headers: { 'Authorization': `Bearer ${token}` },
-    })
-    if (whoami.status === 401) return { ok: false, error: 'Invalid Hugging Face token', models: [] }
-
     const models: { model: string; ok: boolean; error?: string }[] = []
     let allOk = true
     for (const model of HF_REQUIRED_MODELS) {
