@@ -158,6 +158,14 @@ def main():
         help="List all enrolled speakers in the voice repo",
     )
     parser.add_argument(
+        "--enroll-single", nargs=2, metavar=("NAME", "EMBEDDING_JSON"),
+        help="Enroll a single speaker by name and JSON-encoded embedding (non-interactive)",
+    )
+    parser.add_argument(
+        "--unenroll", type=str, metavar="NAME",
+        help="Remove a speaker from the Modal voice repo",
+    )
+    parser.add_argument(
         "--summarize", type=Path, metavar="JSON",
         help="Summarize an existing transcription JSON file",
     )
@@ -193,6 +201,31 @@ def main():
             print(f"[error] file not found: {args.enroll}")
             sys.exit(1)
         run_enroll(args.enroll)
+        return
+
+    if args.enroll_single is not None:
+        name, embedding_json = args.enroll_single
+        import json as _json
+        embedding = _json.loads(embedding_json)
+        from modal_app import app, enroll_speaker
+        with app.run():
+            result = enroll_speaker.remote(name, embedding)
+            if result["ok"]:
+                print(f"[enrolled] {name}")
+            else:
+                print(f"[error] failed to enroll {name}")
+                sys.exit(1)
+        return
+
+    if args.unenroll is not None:
+        from modal_app import app, unenroll_speaker
+        with app.run():
+            result = unenroll_speaker.remote(args.unenroll)
+            if result["ok"]:
+                print(f"[unenrolled] {args.unenroll}")
+            else:
+                print(f"[error] {result.get('error', 'unknown')}")
+                sys.exit(1)
         return
 
     global OUTBOX_DIR
@@ -233,9 +266,24 @@ def main():
                 print(f"[step] Transcribing", flush=True)
                 if result["ok"]:
                     out_folder = make_outbox_folder(file_path)
+
+                    # Save speaker clips
+                    clips_data = result["result"].get("speaker_clips", {})
+                    if clips_data:
+                        import base64
+                        clips_dir = out_folder / "speakers"
+                        clips_dir.mkdir(exist_ok=True)
+                        for speaker_label, clips in clips_data.items():
+                            for idx, clip in enumerate(clips, 1):
+                                clip_path = clips_dir / f"{speaker_label}_clip{idx}.wav"
+                                clip_path.write_bytes(base64.b64decode(clip["wav_base64"]))
+
+                    # Strip base64 clip data before saving (clips saved as separate files)
+                    result_to_save = {**result["result"]}
+                    result_to_save.pop("speaker_clips", None)
                     json_path = out_folder / f"{file_path.stem}.json"
                     json_path.write_text(
-                        json.dumps(result["result"], indent=2, ensure_ascii=False),
+                        json.dumps(result_to_save, indent=2, ensure_ascii=False),
                         encoding="utf-8",
                     )
                     if args.audio_handling == 'store':
