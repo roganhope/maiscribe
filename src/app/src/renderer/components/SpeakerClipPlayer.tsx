@@ -7,21 +7,21 @@ interface Props {
 
 export function SpeakerClipPlayer({ clips }: Props) {
   const [playing, setPlaying] = useState<string | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
 
   function handlePlay(clip: SpeakerClip) {
+    if (!audioRef.current) return
     if (playing === clip.filePath) {
-      audioRef.current?.pause()
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
       setPlaying(null)
       return
     }
-    if (audioRef.current) {
-      audioRef.current.pause()
-    }
-    const audio = new Audio(`local-audio://${encodeURIComponent(clip.filePath)}`)
+    const audio = audioRef.current
     audio.onended = () => setPlaying(null)
-    audio.play()
-    audioRef.current = audio
+    audio.onerror = (e) => { console.error('[clip-player] error', e); setPlaying(null) }
+    audio.src = `local-audio://${encodeURIComponent(clip.filePath)}`
+    audio.play().catch((err) => { console.error('[clip-player] play rejected', err); setPlaying(null) })
     setPlaying(clip.filePath)
   }
 
@@ -29,6 +29,7 @@ export function SpeakerClipPlayer({ clips }: Props) {
 
   return (
     <div className="flex gap-1">
+      <audio ref={audioRef} className="hidden" />
       {clips.map((clip, i) => (
         <button
           key={clip.filePath}

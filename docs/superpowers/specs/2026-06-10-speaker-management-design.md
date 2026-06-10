@@ -47,7 +47,7 @@ Stored per outbox folder at `{outbox_folder}/speakers/{ORIGINAL_LABEL}_clip{N}.w
 
 Example: `meeting_20260610_140000/speakers/SPEAKER_00_clip1.wav`
 
-Each clip is mono 16kHz wav, max 10 seconds, extracted from the longest diarized turns for that speaker.
+Each clip is mono 16kHz wav, between 1-10 seconds (segments shorter than 1s are skipped), extracted from the longest diarized turns for that speaker.
 
 ## Pipeline Changes
 
@@ -172,7 +172,7 @@ Addition to `RecordingDetail`:
 ```typescript
 transcription: {
   // ...existing fields
-  speakerMap: Record<string, string>  // originalLabel -> speakerId
+  speakerMap: Record<string, string>  // originalLabel -> speakerId (computed at read time by main process, not stored in JSON)
 }
 ```
 

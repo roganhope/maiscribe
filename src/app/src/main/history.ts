@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, writeFileSync, existsSync, statSync, rmSync } from 'fs'
 import { join, extname } from 'path'
-import { ipcMain, protocol, net } from 'electron'
+import { ipcMain, protocol } from 'electron'
 import { getConfig } from './config'
 import { getSpeakerMap } from './speakers'
 import type { RecordingListItem, RecordingDetail } from '../shared/types'
@@ -102,7 +102,6 @@ export function getRecording(folderPath: string): RecordingDetail | null {
 
   const folderName = folderPath.split('/').pop()!
   const summary = readJsonSafe(join(folderPath, 'summary.json'))
-  if (!summary) return null
 
   const files = readdirSync(folderPath)
   const transcriptionFile = files.find(
@@ -112,7 +111,7 @@ export function getRecording(folderPath: string): RecordingDetail | null {
     ? readJsonSafe(join(folderPath, transcriptionFile))
     : null
 
-  const title = summary.title || extractTitleFromFolderName(folderName)
+  const title = summary?.title || extractTitleFromFolderName(folderName)
   const date = parseDateFromFolderName(folderName)
   const audioFilePath = findAudioFile(folderPath)
 
@@ -121,12 +120,12 @@ export function getRecording(folderPath: string): RecordingDetail | null {
     folderPath,
     title,
     date,
-    participants: summary.participants || [],
-    durationMinutes: summary.duration_minutes || 0,
-    recordingType: summary.recording_type || 'unknown',
+    participants: summary?.participants || [],
+    durationMinutes: summary?.duration_minutes || 0,
+    recordingType: summary?.recording_type || 'unknown',
     audioFilePath,
     summary: {
-      sections: summary.sections || [],
+      sections: summary?.sections || [],
     },
     transcription: transcription
       ? {
@@ -165,9 +164,31 @@ export function registerHistoryIpc(): void {
   })
 }
 
+const MIME_TYPES: Record<string, string> = {
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
+  '.mp3': 'audio/mpeg',
+  '.flac': 'audio/flac',
+  '.ogg': 'audio/ogg',
+  '.aac': 'audio/aac',
+  '.opus': 'audio/opus',
+  '.mp4': 'audio/mp4',
+}
+
 export function registerAudioProtocol(): void {
   protocol.handle('local-audio', (request) => {
     const filePath = decodeURIComponent(request.url.replace('local-audio://', ''))
-    return net.fetch(`file://${filePath}`)
+    if (!existsSync(filePath)) {
+      return new Response('Not found', { status: 404 })
+    }
+    const data = readFileSync(filePath)
+    const ext = extname(filePath).toLowerCase()
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream'
+    return new Response(data, {
+      headers: {
+        'Content-Type': contentType,
+        'Content-Length': String(data.byteLength),
+      },
+    })
   })
 }
