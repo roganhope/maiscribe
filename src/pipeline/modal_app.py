@@ -101,6 +101,60 @@ def _match_speaker(embedding, voice_repo: dict) -> tuple[str | None, float]:
     return None, best_score
 
 
+def _extract_speaker_clips(
+    wav_path: str,
+    speaker_turns: dict[str, list[tuple[float, float]]],
+    max_clips: int = 3,
+    max_duration: float = 10.0,
+    min_duration: float = 1.0,
+) -> dict[str, list[dict]]:
+    import base64
+    import subprocess
+    import tempfile
+    import os
+
+    clips: dict[str, list[dict]] = {}
+    for speaker, turns in speaker_turns.items():
+        sorted_turns = sorted(turns, key=lambda t: t[1] - t[0], reverse=True)
+        speaker_clips = []
+        for start, end in sorted_turns:
+            duration = end - start
+            if duration < min_duration:
+                continue
+            if duration > max_duration:
+                end = start + max_duration
+            tmp_clip_path = None
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                    tmp_clip_path = tmp.name
+                subprocess.run(
+                    [
+                        "ffmpeg", "-y", "-i", wav_path,
+                        "-ss", str(start), "-to", str(end),
+                        "-ar", "16000", "-ac", "1",
+                        tmp_clip_path,
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
+                with open(tmp_clip_path, "rb") as f:
+                    wav_bytes = f.read()
+                speaker_clips.append({
+                    "start": start,
+                    "end": min(end, start + max_duration),
+                    "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),
+                })
+            except Exception:
+                pass
+            finally:
+                if tmp_clip_path and os.path.exists(tmp_clip_path):
+                    os.unlink(tmp_clip_path)
+            if len(speaker_clips) >= max_clips:
+                break
+        clips[speaker] = speaker_clips
+    return clips
+
+
 @app.function(
     gpu="T4",
     image=image,
@@ -220,6 +274,9 @@ def transcribe_audio(audio_bytes: bytes, filename: str) -> dict:
             for seg in segments
         ]
 
+        # Extract audio clips per speaker for UI playback
+        speaker_clips = _extract_speaker_clips(wav_path, speaker_turns)
+
         return {
             "ok": True,
             "result": {
@@ -233,6 +290,7 @@ def transcribe_audio(audio_bytes: bytes, filename: str) -> dict:
                     speaker_labels[spk]: emb.tolist()
                     for spk, emb in speaker_embeddings.items()
                 },
+                "speaker_clips": speaker_clips,
             },
         }
     except Exception as e:
@@ -272,3 +330,17 @@ def enroll_speaker(name: str, embedding: list[float]) -> dict:
 )
 def list_speakers() -> list[str]:
     return list(_load_voice_repo().keys())
+
+
+@app.function(
+    image=image,
+    volumes={"/voice-repo": voice_repo_volume},
+    timeout=60,
+)
+def unenroll_speaker(name: str) -> dict:
+    repo = _load_voice_repo()
+    if name in repo:
+        del repo[name]
+        _save_voice_repo(repo)
+        return {"ok": True, "removed": name}
+    return {"ok": False, "error": "not found"}
