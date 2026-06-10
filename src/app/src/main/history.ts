@@ -133,7 +133,7 @@ export function getRecording(folderPath: string): RecordingDetail | null {
           segments: transcription.segments || [],
           language: transcription.language || 'en',
           duration: transcription.duration || 0,
-          speakerMap: getSpeakerMap(folderName),
+          speakerMap: getSpeakerMap(folderName, (transcription.segments || []).map((s: any) => s.speaker)),
         }
       : { text: '', segments: [], language: 'en', duration: 0, speakerMap: {} },
   }

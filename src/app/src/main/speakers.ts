@@ -327,14 +327,22 @@ export function getSpeakerClips(id: string): SpeakerClip[] {
   return clips
 }
 
-export function getSpeakerMap(recordingId: string): Record<string, string> {
+export function getSpeakerMap(recordingId: string, segmentLabels?: string[]): Record<string, string> {
   const store = readStore()
   const map: Record<string, string> = {}
+  const labelSet = segmentLabels ? new Set(segmentLabels) : null
+
   for (const speaker of Object.values(store.speakers)) {
     for (const appearance of speaker.appearances) {
       if (appearance.recordingId === recordingId) {
         map[appearance.originalLabel] = speaker.id
+        if (speaker.name) {
+          map[speaker.name] = speaker.id
+        }
       }
+    }
+    if (speaker.name && labelSet?.has(speaker.name)) {
+      map[speaker.name] = speaker.id
     }
   }
   return map
