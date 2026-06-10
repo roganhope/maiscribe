@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/app/resources/icon.png" width="128" height="128" alt="maiscribe icon" />
+</p>
+
 # maiscribe
 
 Welcome! This is a completely open source app to transcribe audio files with ease. Only supports mac for now.
@@ -24,6 +28,20 @@ cd src/app
 bun install
 bun run dev
 ```
+
+### DMG Installer (Experimental)
+
+You can build a standalone macOS installer that bundles everything (app + pipeline scripts) into a single `.dmg` file. No separate Python setup or repo clone needed — the app provisions its own Python environment on first launch.
+
+```bash
+cd src/app
+npm install
+npm run dist
+```
+
+The DMG will be at `src/app/release/maiscribe-<version>-arm64.dmg`. Open it and drag maiscribe to Applications.
+
+> **Note:** The DMG is currently unsigned and unnotarized. macOS will show a warning on first launch — right-click the app and select "Open" to bypass Gatekeeper, or go to System Settings → Privacy & Security and click "Open Anyway".
 
 ## Setup Wizard & Required Keys
 
