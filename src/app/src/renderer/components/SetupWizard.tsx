@@ -23,7 +23,7 @@ export function SetupWizard({ onComplete }: Props) {
   const [autoWatch, setAutoWatch] = useState(true)
   const [autoSummarize, setAutoSummarize] = useState(true)
   const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; models?: { model: string; ok: boolean; error?: string }[] } | null>(null)
   const [syncingSecret, setSyncingSecret] = useState(false)
   const [syncResult, setSyncResult] = useState<{ ok: boolean; error?: string } | null>(null)
 
@@ -149,14 +149,23 @@ export function SetupWizard({ onComplete }: Props) {
         {step === 'modal' && (
           <div>
             <h2 className="text-lg font-semibold mb-2">Modal</h2>
-            <p className="text-sm text-gray-400 mb-4">
-              Modal runs the transcription pipeline in the cloud. You need a token pair to authenticate.
-            </p>
-            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-2">
-              <li>Go to <ExternalLink href="https://modal.com/settings">Modal Settings</ExternalLink></li>
-              <li>Click "New Token" under API Tokens</li>
-              <li>Copy the Token ID and Token Secret below</li>
-            </ol>
+            <div className="max-h-48 overflow-y-auto pr-2 mb-4 text-sm text-gray-400 space-y-3 scrollbar-thin scrollbar-thumb-gray-600">
+              <p>
+                Modal runs the transcription pipeline in the cloud — you won't need a GPU on your machine.
+                It has a free tier that covers light usage.
+              </p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>Go to <ExternalLink href="https://modal.com/signup">modal.com/signup</ExternalLink> and create a free account (GitHub or Google sign-in works)</li>
+                <li>Once logged in, open <ExternalLink href="https://modal.com/settings">Settings → API Tokens</ExternalLink></li>
+                <li>Click <strong className="text-gray-300">Create new token</strong></li>
+                <li>You'll see a <strong className="text-gray-300">Token ID</strong> and <strong className="text-gray-300">Token Secret</strong> — copy both</li>
+                <li>Paste them into the fields below and click <strong className="text-gray-300">Test Connection</strong></li>
+              </ol>
+              <p className="text-xs text-gray-500">
+                The test only verifies your credentials — it doesn't start any containers or cost anything.
+                Modal has a free tier as of June 2025, so whether you get charged depends on your usage.
+              </p>
+            </div>
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-sm text-gray-400">Token ID</label>
@@ -214,16 +223,28 @@ export function SetupWizard({ onComplete }: Props) {
         {step === 'huggingface' && (
           <div>
             <h2 className="text-lg font-semibold mb-2">Hugging Face</h2>
-            <p className="text-sm text-gray-400 mb-4">
-              Required for speaker diarization (identifying who said what). You need to accept the model licenses and create a token.
-            </p>
-            <ol className="text-sm text-gray-400 mb-4 list-decimal list-inside space-y-2">
-              <li>Accept the license for <ExternalLink href="https://huggingface.co/pyannote/speaker-diarization-3.1">pyannote/speaker-diarization-3.1</ExternalLink></li>
-              <li>Accept the license for <ExternalLink href="https://huggingface.co/pyannote/segmentation-3.0">pyannote/segmentation-3.0</ExternalLink></li>
-              <li>Accept the license for <ExternalLink href="https://huggingface.co/pyannote/embedding">pyannote/embedding</ExternalLink></li>
-              <li>Go to <ExternalLink href="https://huggingface.co/settings/tokens">Settings → Access Tokens</ExternalLink></li>
-              <li>Create a new token with "Read" access</li>
-            </ol>
+            <div className="max-h-48 overflow-y-auto pr-2 mb-4 text-sm text-gray-400 space-y-3 scrollbar-thin scrollbar-thumb-gray-600">
+              <p>
+                Hugging Face hosts the speaker diarization models that identify who said what.
+                You need a free account, an access token, and to accept the license for three models.
+              </p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>Go to <ExternalLink href="https://huggingface.co/join">huggingface.co/join</ExternalLink> and create a free account</li>
+                <li>Once logged in, accept the license on each of these model pages (click "Agree and access repository"):
+                  <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                    <li><ExternalLink href="https://huggingface.co/pyannote/speaker-diarization-3.1">pyannote/speaker-diarization-3.1</ExternalLink></li>
+                    <li><ExternalLink href="https://huggingface.co/pyannote/segmentation-3.0">pyannote/segmentation-3.0</ExternalLink></li>
+                    <li><ExternalLink href="https://huggingface.co/pyannote/embedding">pyannote/embedding</ExternalLink></li>
+                  </ul>
+                </li>
+                <li>Go to <ExternalLink href="https://huggingface.co/settings/tokens">Settings → Access Tokens</ExternalLink></li>
+                <li>Click <strong className="text-gray-300">Create new token</strong>, give it a name, and select <strong className="text-gray-300">Read</strong> access</li>
+                <li>Copy the token and paste it below</li>
+              </ol>
+              <p className="text-xs text-gray-500">
+                The test verifies your token and checks that you've accepted all three model licenses. It's free.
+              </p>
+            </div>
             <div>
               <label className="text-sm text-gray-400">Access Token</label>
               <input
@@ -234,7 +255,7 @@ export function SetupWizard({ onComplete }: Props) {
               />
             </div>
 
-            <TestResult testing={testing} result={testResult} />
+            <HfTestResult testing={testing} result={testResult} />
 
             <div className="flex gap-2 mt-6">
               <button
@@ -423,4 +444,27 @@ function TestResult({ testing, result }: { testing: boolean; result: { ok: boole
   if (!result) return null
   if (result.ok) return <p className="mt-3 text-sm text-green-400">Connected successfully</p>
   return <p className="mt-3 text-sm text-red-400">{result.error || 'Connection failed'}</p>
+}
+
+function HfTestResult({ testing, result }: { testing: boolean; result: { ok: boolean; error?: string; models?: { model: string; ok: boolean; error?: string }[] } | null }) {
+  if (testing) return <p className="mt-3 text-sm text-gray-400">Checking token and model access...</p>
+  if (!result) return null
+  if (!result.models || result.models.length === 0) {
+    if (result.ok) return <p className="mt-3 text-sm text-green-400">Connected successfully</p>
+    return <p className="mt-3 text-sm text-red-400">{result.error || 'Connection failed'}</p>
+  }
+  return (
+    <div className="mt-3 space-y-1">
+      <p className="text-sm text-gray-400">Model access:</p>
+      {result.models.map(({ model, ok, error }) => (
+        <div key={model} className="flex items-start gap-2 text-sm">
+          <span className={ok ? 'text-green-400' : 'text-red-400'}>{ok ? '✓' : '✗'}</span>
+          <div>
+            <span className={ok ? 'text-green-400' : 'text-red-400'}>{model.split('/')[1]}</span>
+            {!ok && error && <p className="text-xs text-red-400 mt-0.5">{error}</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }

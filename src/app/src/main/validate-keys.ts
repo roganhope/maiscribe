@@ -77,25 +77,30 @@ async function checkModelAccess(token: string, model: string): Promise<{ ok: boo
   return { ok: false, error: `${model}: unexpected response (${res.status})` }
 }
 
-async function validateHuggingFace(token: string): Promise<ValidationResult> {
+interface HfValidationResult extends ValidationResult {
+  models?: { model: string; ok: boolean; error?: string }[]
+}
+
+async function validateHuggingFace(token: string): Promise<HfValidationResult> {
   try {
-    // First check the token is valid at all
     const whoami = await httpsJson({
       hostname: 'huggingface.co',
       path: '/api/whoami',
       method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` },
     })
-    if (whoami.status === 401) return { ok: false, error: 'Invalid Hugging Face token' }
+    if (whoami.status === 401) return { ok: false, error: 'Invalid Hugging Face token', models: [] }
 
-    // Then check access to each required model
+    const models: { model: string; ok: boolean; error?: string }[] = []
+    let allOk = true
     for (const model of HF_REQUIRED_MODELS) {
       const result = await checkModelAccess(token, model)
-      if (!result.ok) return { ok: false, error: result.error }
+      models.push({ model, ok: result.ok, error: result.error })
+      if (!result.ok) allOk = false
     }
-    return { ok: true }
+    return { ok: allOk, models, error: allOk ? undefined : 'Some models require license acceptance' }
   } catch (err: any) {
-    return { ok: false, error: err.message }
+    return { ok: false, error: err.message, models: [] }
   }
 }
 
