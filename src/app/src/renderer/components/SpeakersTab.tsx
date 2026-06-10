@@ -12,6 +12,7 @@ export function SpeakersTab() {
   const [notesInput, setNotesInput] = useState('')
   const [editingNotes, setEditingNotes] = useState<string | null>(null)
   const [mergeTarget, setMergeTarget] = useState<string | null>(null)
+  const [mergeSelection, setMergeSelection] = useState<string>('')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const unnamed = speakers.filter(s => !s.name)
@@ -183,7 +184,7 @@ export function SpeakersTab() {
                       Unassign
                     </button>
                     <button
-                      onClick={() => setMergeTarget(mergeTarget === speaker.id ? null : speaker.id)}
+                      onClick={() => { setMergeTarget(mergeTarget === speaker.id ? null : speaker.id); setMergeSelection('') }}
                       className="text-xs text-gray-400 hover:text-gray-200"
                     >
                       Merge with...
@@ -207,17 +208,28 @@ export function SpeakersTab() {
                     <div className="mt-2 flex items-center gap-2">
                       <span className="text-xs text-gray-400">Merge into:</span>
                       <select
-                        onChange={(e) => {
-                          if (e.target.value) handleMerge(e.target.value, speaker.id)
-                        }}
+                        value={mergeSelection}
+                        onChange={(e) => setMergeSelection(e.target.value)}
                         className="text-xs bg-gray-900 border border-gray-600 rounded px-2 py-1 text-gray-200"
-                        defaultValue=""
                       >
                         <option value="" disabled>Select speaker...</option>
                         {named.filter(s => s.id !== speaker.id).map(s => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
                       </select>
+                      <button
+                        onClick={() => { if (mergeSelection) handleMerge(mergeSelection, speaker.id) }}
+                        disabled={!mergeSelection}
+                        className="text-xs px-2 py-0.5 rounded bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Merge
+                      </button>
+                      <button
+                        onClick={() => { setMergeTarget(null); setMergeSelection('') }}
+                        className="text-xs text-gray-500 hover:text-gray-300"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   )}
                 </div>
