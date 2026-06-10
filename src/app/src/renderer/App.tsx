@@ -13,6 +13,7 @@ export default function App() {
   const pythonEnv = usePythonEnv()
   const [tab, setTab] = useState<Tab>('process')
   const [wizardDone, setWizardDone] = useState(false)
+  const [showWizard, setShowWizard] = useState(false)
   const historyRef = useRef<HistoryViewHandle>(null)
 
   function handleOpenHistory(outputPath: string) {
@@ -30,12 +31,13 @@ export default function App() {
     )
   }
 
-  if (!config && !wizardDone) {
+  if ((!config && !wizardDone) || showWizard) {
     return (
       <SetupWizard
         onComplete={(newConfig) => {
           saveConfig(newConfig)
           setWizardDone(true)
+          setShowWizard(false)
         }}
       />
     )
@@ -79,14 +81,14 @@ export default function App() {
       )}
 
       <div className="flex-1 min-h-0">
-        {tab === 'process' && <Dashboard onOpenHistory={handleOpenHistory} />}
+        {tab === 'process' && <Dashboard onOpenHistory={handleOpenHistory} onNavigateToKeys={() => setTab('settings')} />}
         {tab === 'history' && <HistoryView ref={historyRef} />}
         {tab === 'speakers' && (
           <div className="flex items-center justify-center h-full text-gray-500 text-sm italic">
             Coming soon
           </div>
         )}
-        {tab === 'settings' && <Settings />}
+        {tab === 'settings' && <Settings onOpenWizard={() => setShowWizard(true)} />}
       </div>
     </div>
   )

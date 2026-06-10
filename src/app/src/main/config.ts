@@ -20,7 +20,7 @@ export function getSourceRoot(): string {
 }
 
 function defaultBasePath(): string {
-  return join(app.getPath('documents'), 'Audio Transcriptions')
+  return join(app.getPath('documents'), 'Maiscribe')
 }
 
 function defaultConfig(): AppConfig {

@@ -2,9 +2,13 @@ import { useState, useEffect } from 'react'
 import type { AppConfig } from '../../shared/types'
 import { useConfig } from '../hooks/useConfig'
 
-type SettingsTab = 'keys' | 'defaults' | 'location'
+type SettingsTab = 'keys' | 'defaults' | 'location' | 'setup'
 
-export function Settings() {
+interface SettingsProps {
+  onOpenWizard?: () => void
+}
+
+export function Settings({ onOpenWizard }: SettingsProps) {
   const { config, saveConfig } = useConfig()
   const [draft, setDraft] = useState<AppConfig | null>(null)
   const [envKeys, setEnvKeys] = useState<Record<string, string>>({})
@@ -58,6 +62,7 @@ export function Settings() {
     { key: 'defaults', label: 'Defaults' },
     { key: 'keys', label: 'API Keys' },
     { key: 'location', label: 'Location' },
+    { key: 'setup', label: 'Setup' },
   ]
 
   return (
@@ -148,54 +153,89 @@ export function Settings() {
 
       {tab === 'defaults' && (
         <section className="flex flex-col gap-4">
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={draft.pipeline.audioHandling !== 'delete'}
-              onChange={(e) => setDraft({ ...draft, pipeline: { ...draft.pipeline, audioHandling: e.target.checked ? (draft.pipeline.audioHandling === 'delete' ? 'store' : draft.pipeline.audioHandling) : 'delete' } })}
-              className="accent-accent-500"
-            />
-            <span className="text-sm">Store audio file with transcription</span>
-            <span className="text-xs text-gray-500 cursor-help" title="Save a copy of the audio file alongside the transcription in your outbox">?</span>
-          </label>
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={draft.pipeline.audioHandling === 'store-and-delete'}
-              disabled={draft.pipeline.audioHandling === 'delete'}
-              onChange={(e) => setDraft({ ...draft, pipeline: { ...draft.pipeline, audioHandling: e.target.checked ? 'store-and-delete' : 'store' } })}
-              className="accent-accent-500"
-            />
-            <span className={`text-sm ${draft.pipeline.audioHandling === 'delete' ? 'text-gray-600' : ''}`}>Delete original after storing</span>
-            <span className="text-xs text-gray-500 cursor-help" title="Remove the original audio file from its source location after copying it to the outbox">?</span>
-          </label>
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={draft.pipeline.autoWatch}
-              onChange={(e) => setDraft({ ...draft, pipeline: { ...draft.pipeline, autoWatch: e.target.checked } })}
-              className="accent-accent-500"
-            />
-            <span className="text-sm">Auto-watch inbox folder with default settings</span>
-            <span className="text-xs text-gray-500 cursor-help" title="Automatically start transcription when new audio files appear in your inbox folder, using the settings configured here">?</span>
-          </label>
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={draft.pipeline.autoSummarize}
-              onChange={(e) => setDraft({ ...draft, pipeline: { ...draft.pipeline, autoSummarize: e.target.checked } })}
-              className="accent-accent-500"
-            />
-            <span className="text-sm">Auto-summarize</span>
-            <span className="text-xs text-gray-500 cursor-help" title="Generate a meeting summary with key points, action items, and participants after transcription completes">?</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Auto-watch inbox folder with default settings</span>
+              <span className="text-xs text-gray-500 cursor-help" title="Automatically start transcription when new audio files appear in your inbox folder, using the settings configured here">?</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={draft.pipeline.autoWatch}
+              onClick={() => setDraft({ ...draft, pipeline: { ...draft.pipeline, autoWatch: !draft.pipeline.autoWatch } })}
+              className={`relative w-10 h-5 rounded-full transition-colors ${draft.pipeline.autoWatch ? 'bg-accent-500' : 'bg-gray-600'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${draft.pipeline.autoWatch ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
+          <div className="border-t border-gray-700 pt-4 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Store audio in Maiscribe</span>
+              <span className="text-xs text-gray-500 cursor-help" title="Save a copy of the audio file alongside the transcription in Maiscribe">?</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={draft.pipeline.audioHandling === 'store' || draft.pipeline.audioHandling === 'store-and-delete'}
+              onClick={() => {
+                const storing = draft.pipeline.audioHandling === 'store' || draft.pipeline.audioHandling === 'store-and-delete'
+                const deleting = draft.pipeline.audioHandling === 'delete' || draft.pipeline.audioHandling === 'store-and-delete'
+                const newHandling = storing
+                  ? (deleting ? 'delete' : 'delete')
+                  : (deleting ? 'store-and-delete' : 'store')
+                setDraft({ ...draft, pipeline: { ...draft.pipeline, audioHandling: newHandling } })
+              }}
+              className={`relative w-10 h-5 rounded-full transition-colors ${draft.pipeline.audioHandling === 'store' || draft.pipeline.audioHandling === 'store-and-delete' ? 'bg-accent-500' : 'bg-gray-600'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${draft.pipeline.audioHandling === 'store' || draft.pipeline.audioHandling === 'store-and-delete' ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Delete original audio after processing</span>
+              <span className="text-xs text-gray-500 cursor-help" title="Remove the original audio file from its source location after transcription completes">?</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={draft.pipeline.audioHandling === 'store-and-delete' || draft.pipeline.audioHandling === 'delete'}
+              onClick={() => {
+                const deleting = draft.pipeline.audioHandling === 'store-and-delete' || draft.pipeline.audioHandling === 'delete'
+                const storing = draft.pipeline.audioHandling === 'store' || draft.pipeline.audioHandling === 'store-and-delete'
+                const newHandling = deleting
+                  ? (storing ? 'store' : 'store')
+                  : (storing ? 'store-and-delete' : 'delete')
+                setDraft({ ...draft, pipeline: { ...draft.pipeline, audioHandling: newHandling } })
+              }}
+              className={`relative w-10 h-5 rounded-full transition-colors ${draft.pipeline.audioHandling === 'store-and-delete' || draft.pipeline.audioHandling === 'delete' ? 'bg-accent-500' : 'bg-gray-600'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${draft.pipeline.audioHandling === 'store-and-delete' || draft.pipeline.audioHandling === 'delete' ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Auto-summarize</span>
+              <span className="text-xs text-gray-500 cursor-help" title="Generate a meeting summary with key points, action items, and participants after transcription completes">?</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={draft.pipeline.autoSummarize}
+              onClick={() => setDraft({ ...draft, pipeline: { ...draft.pipeline, autoSummarize: !draft.pipeline.autoSummarize } })}
+              className={`relative w-10 h-5 rounded-full transition-colors ${draft.pipeline.autoSummarize ? 'bg-accent-500' : 'bg-gray-600'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${draft.pipeline.autoSummarize ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
         </section>
       )}
 
       {tab === 'location' && (
         <section>
           <p className="text-sm text-gray-400 mb-3">
-            Where your inbox and outbox folders are stored.
+            Where your Maiscribe data is stored.
           </p>
           <div className="flex gap-2">
             <input
@@ -211,12 +251,28 @@ export function Settings() {
         </section>
       )}
 
-      <button
-        onClick={handleSave}
-        className="mt-auto py-2 bg-accent-500 hover:bg-accent-600 rounded font-medium"
-      >
-        {saved ? 'Saved!' : 'Save'}
-      </button>
+      {tab === 'setup' && (
+        <section className="flex flex-col items-start gap-3">
+          <p className="text-sm text-gray-400">
+            Re-run the initial setup wizard to reconfigure your tokens and preferences.
+          </p>
+          <button
+            onClick={onOpenWizard}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+          >
+            Open startup wizard
+          </button>
+        </section>
+      )}
+
+      {tab !== 'setup' && (
+        <button
+          onClick={handleSave}
+          className="mt-auto py-2 bg-accent-500 hover:bg-accent-600 rounded font-medium"
+        >
+          {saved ? 'Saved!' : 'Save'}
+        </button>
+      )}
     </div>
   )
 }

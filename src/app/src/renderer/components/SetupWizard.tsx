@@ -332,8 +332,8 @@ export function SetupWizard({ onComplete }: Props) {
                   onChange={(e) => setAudioHandling(e.target.value as any)}
                   className="w-full bg-gray-700 rounded px-3 py-2 text-sm mt-1 text-gray-200"
                 >
-                  <option value="store">Store in outbox (keep original)</option>
-                  <option value="store-and-delete">Store in outbox (delete original)</option>
+                  <option value="store">Store in Maiscribe (keep original)</option>
+                  <option value="store-and-delete">Store in Maiscribe (delete original)</option>
                   <option value="delete">Delete after processing</option>
                 </select>
               </div>

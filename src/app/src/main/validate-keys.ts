@@ -47,12 +47,9 @@ async function validateModal(tokenId: string, tokenSecret: string): Promise<Vali
         'Authorization': `Bearer ${tokenId}:${tokenSecret}`,
       },
     })
-    if (res.status === 200 || res.status === 401) {
-      // Modal returns 401 for bad tokens, 200 for valid
-      if (res.status === 401) return { ok: false, error: 'Invalid Modal tokens' }
-      return { ok: true }
-    }
-    return { ok: true }
+    if (res.status === 200) return { ok: true }
+    if (res.status === 401) return { ok: false, error: 'Invalid Modal tokens' }
+    return { ok: false, error: `Unexpected response from Modal (${res.status})` }
   } catch (err: any) {
     return { ok: false, error: err.message }
   }

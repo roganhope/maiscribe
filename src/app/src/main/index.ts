@@ -1,5 +1,8 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+
+app.setName('Maiscribe')
+
 import { registerConfigIpc, migrateFromRepoRoot, ensureDataDirs } from './config'
 import { registerEnvIpc } from './env'
 import { registerQueueIpc } from './queue'

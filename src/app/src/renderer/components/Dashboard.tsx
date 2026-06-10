@@ -1,13 +1,24 @@
+import { useState, useEffect } from 'react'
 import { DropZone } from './DropZone'
 import { QueueItem } from './QueueItem'
 import { useQueue } from '../hooks/useQueue'
 
 interface DashboardProps {
   onOpenHistory: (outputPath: string) => void
+  onNavigateToKeys: () => void
 }
 
-export function Dashboard({ onOpenHistory }: DashboardProps) {
+export function Dashboard({ onOpenHistory, onNavigateToKeys }: DashboardProps) {
   const queue = useQueue()
+  const [keysReady, setKeysReady] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    window.api.env.get().then((vars) => {
+      const hasModal = !!(vars.MODAL_TOKEN_ID && vars.MODAL_TOKEN_SECRET)
+      const hasHf = !!vars.HF_TOKEN
+      setKeysReady(hasModal && hasHf)
+    })
+  }, [])
 
   const isProcessing = queue.some(i => i.status === 'processing')
   const hasStaged = queue.some(i => i.status === 'staged')
@@ -25,7 +36,7 @@ export function Dashboard({ onOpenHistory }: DashboardProps) {
   return (
     <div className="flex flex-col gap-6 p-6 h-full" tabIndex={0} onKeyDown={handleKeyDown}>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-100">Audio Transcription</h1>
+        <h1 className="text-xl font-bold text-gray-100">Maiscribe</h1>
         {isProcessing && (
           <button
             onClick={() => window.api.queue.cancel()}
@@ -36,7 +47,7 @@ export function Dashboard({ onOpenHistory }: DashboardProps) {
         )}
       </div>
 
-      <DropZone />
+      <DropZone disabled={keysReady === false} onNavigateToKeys={onNavigateToKeys} />
 
       {queue.length > 0 && (
         <div className="flex flex-col gap-2 overflow-y-auto flex-1">
