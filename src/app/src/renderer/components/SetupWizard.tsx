@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import type { AppConfig } from '../../shared/types'
+import iconUrl from '../assets/icon.png'
 
-type Step = 'folder' | 'modal' | 'huggingface' | 'claude' | 'options' | 'done'
-const STEPS: Step[] = ['folder', 'modal', 'huggingface', 'claude', 'options', 'done']
+type Step = 'welcome' | 'folder' | 'modal' | 'huggingface' | 'claude' | 'options' | 'done'
+const STEPS: Step[] = ['welcome', 'folder', 'modal', 'huggingface', 'claude', 'options', 'done']
 
 interface Props {
   onComplete: (config: AppConfig) => void
 }
 
 export function SetupWizard({ onComplete }: Props) {
-  const [step, setStep] = useState<Step>('folder')
+  const [step, setStep] = useState<Step>('welcome')
   const [basePath, setBasePath] = useState('')
 
   useEffect(() => {
@@ -115,6 +116,22 @@ export function SetupWizard({ onComplete }: Props) {
             />
           ))}
         </div>
+
+        {step === 'welcome' && (
+          <div className="text-center">
+            <img src={iconUrl} alt="maiscribe" className="w-24 h-24 mx-auto mb-6 rounded-2xl" />
+            <h1 className="text-2xl font-bold mb-3">Welcome to maiscribe</h1>
+            <p className="text-sm text-gray-400 mb-8">
+              Your personal audio transcription and AI summarization pipeline.
+            </p>
+            <button
+              onClick={() => goNext('folder')}
+              className="w-full py-2 bg-accent-500 hover:bg-accent-600 rounded font-medium"
+            >
+              Get Started
+            </button>
+          </div>
+        )}
 
         {step === 'folder' && (
           <div>

@@ -16,6 +16,9 @@ function getRepoRoot(): string {
 }
 
 export function getSourceRoot(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, 'pipeline')
+  }
   return join(getRepoRoot(), 'src', 'pipeline')
 }
 
