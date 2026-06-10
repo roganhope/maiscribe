@@ -5,6 +5,7 @@ import { Dashboard } from './components/Dashboard'
 import { SetupWizard } from './components/SetupWizard'
 import { Settings } from './components/Settings'
 import { HistoryView, HistoryViewHandle } from './components/HistoryView'
+import { SpeakersTab } from './components/SpeakersTab'
 
 type Tab = 'process' | 'history' | 'speakers' | 'settings'
 
@@ -83,11 +84,7 @@ export default function App() {
       <div className="flex-1 min-h-0">
         {tab === 'process' && <Dashboard onOpenHistory={handleOpenHistory} onNavigateToKeys={() => setTab('settings')} />}
         {tab === 'history' && <HistoryView ref={historyRef} />}
-        {tab === 'speakers' && (
-          <div className="flex items-center justify-center h-full text-gray-500 text-sm italic">
-            Coming soon
-          </div>
-        )}
+        {tab === 'speakers' && <SpeakersTab />}
         {tab === 'settings' && <Settings onOpenWizard={() => setShowWizard(true)} />}
       </div>
     </div>
