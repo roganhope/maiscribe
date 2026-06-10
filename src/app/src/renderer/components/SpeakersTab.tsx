@@ -4,8 +4,9 @@ import { SpeakerClipPlayer } from './SpeakerClipPlayer'
 import type { Speaker, SpeakerClip } from '../../shared/types'
 
 export function SpeakersTab() {
-  const { speakers, loading, rename, unassign, updateNotes, merge, deleteSpeaker, getClips, refresh } = useSpeakers()
+  const { speakers, loading, rename, unassign, updateNotes, merge, deleteSpeaker, getClips, getQuotes, refresh } = useSpeakers()
   const [clips, setClips] = useState<Record<string, SpeakerClip[]>>({})
+  const [quotes, setQuotes] = useState<Record<string, string[]>>({})
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [nameInput, setNameInput] = useState('')
@@ -21,6 +22,7 @@ export function SpeakersTab() {
   useEffect(() => {
     for (const s of unnamed) {
       if (!clips[s.id]) loadClips(s.id)
+      if (!quotes[s.id]) loadQuotes(s.id)
     }
   }, [speakers])
 
@@ -28,6 +30,13 @@ export function SpeakersTab() {
     if (!clips[id]) {
       const c = await getClips(id)
       setClips(prev => ({ ...prev, [id]: c }))
+    }
+  }
+
+  async function loadQuotes(id: string) {
+    if (!quotes[id]) {
+      const q = await getQuotes(id)
+      setQuotes(prev => ({ ...prev, [id]: q }))
     }
   }
 
@@ -93,7 +102,7 @@ export function SpeakersTab() {
                     />
                   ) : (
                     <button
-                      onClick={() => { setEditingId(speaker.id); setNameInput(''); loadClips(speaker.id) }}
+                      onClick={() => { setEditingId(speaker.id); setNameInput('') }}
                       className="text-sm text-accent-400 hover:text-accent-300"
                     >
                       Assign name
@@ -101,6 +110,13 @@ export function SpeakersTab() {
                   )}
                   <SpeakerClipPlayer clips={clips[speaker.id] || []} />
                 </div>
+                {(quotes[speaker.id] || []).length > 0 && (
+                  <div className="mb-2 space-y-1">
+                    {quotes[speaker.id].map((q, i) => (
+                      <p key={i} className="text-xs text-gray-400 italic truncate">&ldquo;{q}&rdquo;</p>
+                    ))}
+                  </div>
+                )}
                 <div className="text-xs text-gray-500">
                   {speaker.appearances.length} recording{speaker.appearances.length !== 1 ? 's' : ''} &middot; First seen {new Date(speaker.createdAt).toLocaleDateString()}
                 </div>

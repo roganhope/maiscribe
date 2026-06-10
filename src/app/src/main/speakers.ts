@@ -245,6 +245,55 @@ export async function deleteSpeaker(id: string): Promise<void> {
   writeStore(store)
 }
 
+function resolveRecordingFolder(outboxPath: string, recordingId: string): string | null {
+  const exact = join(outboxPath, recordingId)
+  if (existsSync(exact)) return exact
+  const stem = recordingId.replace(/_\d{8}_\d{6}$/, '')
+  try {
+    const match = readdirSync(outboxPath)
+      .filter(f => f.startsWith(stem + '_') && existsSync(join(outboxPath, f, 'speakers')))
+      .sort()
+      .pop()
+    if (match) return join(outboxPath, match)
+  } catch {}
+  return null
+}
+
+export function getSpeakerQuotes(id: string): string[] {
+  const store = readStore()
+  const speaker = store.speakers[id]
+  if (!speaker) return []
+
+  const config = getConfig()
+  if (!config) return []
+  const outboxPath = join(config.basePath, 'outbox')
+
+  const quotes: string[] = []
+  for (const appearance of speaker.appearances) {
+    const folderPath = resolveRecordingFolder(outboxPath, appearance.recordingId)
+    if (!folderPath) continue
+    try {
+      const files = readdirSync(folderPath).filter(
+        f => f.endsWith('.json') && f !== 'summary.json'
+      )
+      for (const file of files) {
+        const data = JSON.parse(readFileSync(join(folderPath, file), 'utf-8'))
+        if (!data.segments) continue
+        for (const seg of data.segments) {
+          if (seg.speaker === appearance.originalLabel || seg.speaker === speaker.name) {
+            const text = (seg.text || '').trim()
+            if (text.length > 20 && !quotes.includes(text)) {
+              quotes.push(text)
+              if (quotes.length >= 3) return quotes
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  return quotes
+}
+
 export function getSpeakerClips(id: string): SpeakerClip[] {
   const store = readStore()
   const speaker = store.speakers[id]
@@ -256,7 +305,9 @@ export function getSpeakerClips(id: string): SpeakerClip[] {
 
   const clips: SpeakerClip[] = []
   for (const appearance of speaker.appearances) {
-    const clipsDir = join(outboxPath, appearance.recordingId, 'speakers')
+    const folder = resolveRecordingFolder(outboxPath, appearance.recordingId)
+    if (!folder) continue
+    const clipsDir = join(folder, 'speakers')
     if (!existsSync(clipsDir)) continue
     try {
       const files = readdirSync(clipsDir).filter(
@@ -310,4 +361,5 @@ export function registerSpeakersIpc(): void {
   ipcMain.handle('speakers:merge', (_event, keepId: string, removeId: string) => mergeSpeakers(keepId, removeId))
   ipcMain.handle('speakers:delete', (_event, id: string) => deleteSpeaker(id))
   ipcMain.handle('speakers:getClips', (_event, id: string) => getSpeakerClips(id))
+  ipcMain.handle('speakers:getQuotes', (_event, id: string) => getSpeakerQuotes(id))
 }

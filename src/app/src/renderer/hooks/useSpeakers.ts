@@ -49,6 +49,10 @@ export function useSpeakers() {
     return window.api.speakers.getClips(id)
   }, [])
 
+  const getQuotes = useCallback(async (id: string): Promise<string[]> => {
+    return window.api.speakers.getQuotes(id)
+  }, [])
+
   return {
     speakers,
     loading,
@@ -59,5 +63,6 @@ export function useSpeakers() {
     merge,
     deleteSpeaker,
     getClips,
+    getQuotes,
   }
 }

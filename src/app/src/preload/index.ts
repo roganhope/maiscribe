@@ -70,6 +70,7 @@ const api: ElectronAPI = {
     merge: (keepId, removeId) => ipcRenderer.invoke('speakers:merge', keepId, removeId),
     delete: (id) => ipcRenderer.invoke('speakers:delete', id),
     getClips: (id) => ipcRenderer.invoke('speakers:getClips', id),
+    getQuotes: (id) => ipcRenderer.invoke('speakers:getQuotes', id),
   },
 }
 
