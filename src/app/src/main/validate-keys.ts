@@ -1,5 +1,8 @@
 import { request } from 'https'
+import { execFile } from 'child_process'
 import { ipcMain } from 'electron'
+import { getPythonPath } from './python-env'
+import { getEnvVars } from './env'
 
 interface ValidationResult {
   ok: boolean
@@ -129,6 +132,36 @@ async function validateClaude(apiKey: string): Promise<ValidationResult> {
   }
 }
 
+async function syncModalSecret(
+  hfToken: string,
+  modalTokenId: string,
+  modalTokenSecret: string
+): Promise<ValidationResult> {
+  const pythonPath = getPythonPath()
+  const envVars = getEnvVars()
+  const env = {
+    ...process.env,
+    ...envVars,
+    MODAL_TOKEN_ID: modalTokenId,
+    MODAL_TOKEN_SECRET: modalTokenSecret,
+  }
+
+  return new Promise((resolve) => {
+    execFile(
+      pythonPath,
+      ['-m', 'modal', 'secret', 'create', 'huggingface', `HUGGING_FACE_HUB_TOKEN=${hfToken}`],
+      { env, timeout: 30_000 },
+      (err, _stdout, stderr) => {
+        if (err) {
+          resolve({ ok: false, error: stderr.trim() || err.message })
+        } else {
+          resolve({ ok: true })
+        }
+      }
+    )
+  })
+}
+
 export function registerValidateKeysIpc(): void {
   ipcMain.handle('validate:modal', (_event, tokenId: string, tokenSecret: string) =>
     validateModal(tokenId, tokenSecret)
@@ -139,4 +172,17 @@ export function registerValidateKeysIpc(): void {
   ipcMain.handle('validate:claude', (_event, apiKey: string) =>
     validateClaude(apiKey)
   )
+  ipcMain.handle('validate:syncModalSecret', (_event, hfToken: string, modalTokenId: string, modalTokenSecret: string) =>
+    syncModalSecret(hfToken, modalTokenId, modalTokenSecret)
+  )
+  ipcMain.handle('validate:syncModalSecretFromEnv', () => {
+    const vars = getEnvVars()
+    const hf = vars.HF_TOKEN
+    const modalId = vars.MODAL_TOKEN_ID
+    const modalSecret = vars.MODAL_TOKEN_SECRET
+    if (!hf || !modalId || !modalSecret) {
+      return { ok: false, error: 'Modal tokens and HF token must all be set first' } as ValidationResult
+    }
+    return syncModalSecret(hf, modalId, modalSecret)
+  })
 }

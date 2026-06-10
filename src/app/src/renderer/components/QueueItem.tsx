@@ -110,9 +110,9 @@ export function QueueItem({ item, onOpenHistory }: Props) {
               onChange={(e) => window.api.queue.updateOptions(item.id, { audioHandling: e.target.value as any })}
               className="text-xs bg-gray-700 rounded px-2 py-1 text-gray-200"
             >
-              <option value="store">Store (keep original)</option>
-              <option value="store-and-delete">Store (delete original)</option>
-              <option value="delete">Delete</option>
+              <option value="store">Copy audio to outbox, keep original</option>
+              <option value="store-and-delete">Move audio to outbox, delete original</option>
+              <option value="delete">Don't store audio, leave original</option>
             </select>
           </div>
           <div className="flex items-center gap-2">

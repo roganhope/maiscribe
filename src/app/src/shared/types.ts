@@ -131,6 +131,8 @@ export interface ElectronAPI {
     modal: (tokenId: string, tokenSecret: string) => Promise<{ ok: boolean; error?: string }>
     huggingFace: (token: string) => Promise<{ ok: boolean; error?: string }>
     claude: (apiKey: string) => Promise<{ ok: boolean; error?: string }>
+    syncModalSecret: (hfToken: string, modalTokenId: string, modalTokenSecret: string) => Promise<{ ok: boolean; error?: string }>
+    syncModalSecretFromEnv: () => Promise<{ ok: boolean; error?: string }>
   }
 }
 

@@ -6,6 +6,8 @@ from unittest.mock import patch, MagicMock
 
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "pipeline"))
+
 from summarize import format_transcript, render_markdown, call_claude, summarize_file
 
 
@@ -215,12 +217,12 @@ def test_cli_summarize_flag(tmp_path):
     json_path = tmp_path / "test.json"
     json_path.write_text(json.dumps(transcript), encoding="utf-8")
 
-    project_dir = Path(__file__).resolve().parent.parent
+    pipeline_dir = Path(__file__).resolve().parent.parent / "src" / "pipeline"
     env = {k: v for k, v in os.environ.items()}
     env["ANTHROPIC_API_KEY"] = ""
     env["CLAUDE_API_KEY"] = ""
     result = subprocess.run(
-        [sys.executable, str(project_dir / "transcribe.py"), "--summarize", str(json_path)],
+        [sys.executable, str(pipeline_dir / "transcribe.py"), "--summarize", str(json_path)],
         capture_output=True,
         text=True,
         env=env,

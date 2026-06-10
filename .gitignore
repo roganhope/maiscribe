@@ -1,12 +1,14 @@
 .env
+.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
 inbox/
 outbox/
 errors.txt
-app/out/
-app/node_modules/
-app/dist/
+src/app/out/
+src/app/node_modules/
+src/app/dist/
 config.json
 .DS_Store
+docs/superpowers/

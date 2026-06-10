@@ -11,8 +11,12 @@ function configPath(): string {
   return join(userDataDir(), 'config.json')
 }
 
+function getRepoRoot(): string {
+  return join(__dirname, '..', '..', '..', '..', '..')
+}
+
 export function getSourceRoot(): string {
-  return join(__dirname, '..', '..', '..')
+  return join(getRepoRoot(), 'src', 'pipeline')
 }
 
 function defaultBasePath(): string {
@@ -37,7 +41,7 @@ function defaultConfig(): AppConfig {
 }
 
 export function migrateFromRepoRoot(): void {
-  const repoRoot = getSourceRoot()
+  const repoRoot = getRepoRoot()
   const oldConfigPath = join(repoRoot, 'config.json')
   const oldEnvPath = join(repoRoot, '.env')
   const newConfigPath = configPath()

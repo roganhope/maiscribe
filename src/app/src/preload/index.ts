@@ -58,6 +58,8 @@ const api: ElectronAPI = {
     modal: (tokenId, tokenSecret) => ipcRenderer.invoke('validate:modal', tokenId, tokenSecret),
     huggingFace: (token) => ipcRenderer.invoke('validate:huggingface', token),
     claude: (apiKey) => ipcRenderer.invoke('validate:claude', apiKey),
+    syncModalSecret: (hfToken, modalTokenId, modalTokenSecret) => ipcRenderer.invoke('validate:syncModalSecret', hfToken, modalTokenId, modalTokenSecret),
+    syncModalSecretFromEnv: () => ipcRenderer.invoke('validate:syncModalSecretFromEnv'),
   },
 }
 

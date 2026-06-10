@@ -24,6 +24,8 @@ export function SetupWizard({ onComplete }: Props) {
   const [autoSummarize, setAutoSummarize] = useState(true)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [syncingSecret, setSyncingSecret] = useState(false)
+  const [syncResult, setSyncResult] = useState<{ ok: boolean; error?: string } | null>(null)
 
   async function selectFolder() {
     const path = await window.api.dialog.selectDirectory()
@@ -82,6 +84,13 @@ export function SetupWizard({ onComplete }: Props) {
     if (hfToken) envVars.HF_TOKEN = hfToken
     if (claudeApiKey) envVars.CLAUDE_API_KEY = claudeApiKey
     if (Object.keys(envVars).length) await window.api.env.set(envVars)
+
+    if (modalTokenId && modalTokenSecret && hfToken) {
+      setSyncingSecret(true)
+      const result = await window.api.validate.syncModalSecret(hfToken, modalTokenId, modalTokenSecret)
+      setSyncResult(result)
+      setSyncingSecret(false)
+    }
 
     onComplete(config)
   }
@@ -368,6 +377,19 @@ export function SetupWizard({ onComplete }: Props) {
           <div className="text-center">
             <h2 className="text-lg font-semibold mb-2">All set!</h2>
             <p className="text-sm text-gray-400">Your pipeline is configured and ready to use.</p>
+            {syncingSecret && (
+              <p className="text-sm text-gray-400 mt-3">Syncing Hugging Face token to Modal cloud...</p>
+            )}
+            {syncResult && !syncResult.ok && (
+              <p className="text-sm text-red-400 mt-3">
+                Failed to sync HF token to Modal: {syncResult.error}. You can fix this in Settings.
+              </p>
+            )}
+            {syncResult?.ok && (
+              <p className="text-sm text-green-400 mt-3">
+                Hugging Face token synced to Modal cloud.
+              </p>
+            )}
             {(!modalTokenId || !hfToken) && (
               <p className="text-sm text-yellow-400 mt-3">
                 Note: Transcription requires Modal and Hugging Face tokens. You can add them in Settings.
