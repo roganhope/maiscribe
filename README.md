@@ -25,18 +25,19 @@ bun install
 bun run dev
 ```
 
-## API Keys
+## Setup Wizard & Required Keys
 
-All keys are stored in a `.env` file (the app manages this via Settings, or set them manually).
+On first launch, the setup wizard walks you through configuration:
 
-| Key | What it does |
-|-----|------|
-| `MODAL_TOKEN_ID` | Authenticates with Modal to run GPU transcription jobs |
-| `MODAL_TOKEN_SECRET` | Paired with the token ID above |
-| `HF_TOKEN` | Hugging Face token — needed for pyannote speaker diarization and embedding models (must accept the model licenses on HF) |
-| `CLAUDE_API_KEY` | Anthropic API key for generating post-transcription summaries |
+1. **File Location** — Where transcripts are saved. A default is selected for you, but you can change it.
 
-The app automatically syncs your HF token to a Modal secret named `huggingface` so the remote GPU function can access gated models.
+2. **Modal Key** `REQUIRED` — [Modal](https://modal.com) is a serverless GPU platform. This key is needed to run transcription on remote GPUs so you don't use compute on your own machine.
+
+3. **Hugging Face Token** `REQUIRED` — We use two gated models: [faster-whisper large-v3](https://huggingface.co/Systran/faster-whisper-large-v3) for transcription and [pyannote speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) for identifying who's talking. You must accept each model's license on Hugging Face before your token will work.
+
+4. **Claude API Key** `OPTIONAL` — An [Anthropic API](https://console.anthropic.com) key. This is only needed if you want post-transcription summaries (title, topics, action items, etc.).
+
+All keys are stored in a local `.env` file (the app manages this via the wizard/settings, or set them manually). The app automatically syncs your HF token to a Modal secret so the remote GPU function can access the gated models.
 
 ## How It Works
 
