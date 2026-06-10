@@ -10,6 +10,7 @@ import { registerWatcherIpc, initWatcher } from './watcher'
 import { registerHistoryIpc, registerAudioProtocol } from './history'
 import { registerPythonEnvIpc, ensurePythonEnv, onStatusChange } from './python-env'
 import { registerValidateKeysIpc } from './validate-keys'
+import { registerSpeakersIpc } from './speakers'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -49,6 +50,7 @@ app.whenReady().then(() => {
   registerAudioProtocol()
   registerPythonEnvIpc()
   registerValidateKeysIpc()
+  registerSpeakersIpc()
 
   ipcMain.on('shell:openPath', (_event, path: string) => {
     shell.showItemInFolder(path)

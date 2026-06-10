@@ -61,6 +61,16 @@ const api: ElectronAPI = {
     syncModalSecret: (hfToken, modalTokenId, modalTokenSecret) => ipcRenderer.invoke('validate:syncModalSecret', hfToken, modalTokenId, modalTokenSecret),
     syncModalSecretFromEnv: () => ipcRenderer.invoke('validate:syncModalSecretFromEnv'),
   },
+  speakers: {
+    list: () => ipcRenderer.invoke('speakers:list'),
+    get: (id) => ipcRenderer.invoke('speakers:get', id),
+    rename: (id, name) => ipcRenderer.invoke('speakers:rename', id, name),
+    unassign: (id) => ipcRenderer.invoke('speakers:unassign', id),
+    updateNotes: (id, notes) => ipcRenderer.invoke('speakers:updateNotes', id, notes),
+    merge: (keepId, removeId) => ipcRenderer.invoke('speakers:merge', keepId, removeId),
+    delete: (id) => ipcRenderer.invoke('speakers:delete', id),
+    getClips: (id) => ipcRenderer.invoke('speakers:getClips', id),
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -5,6 +5,7 @@ import type { QueueItem, QueueItemOptions, QueueState } from '../shared/types'
 import { getConfig } from './config'
 import { runPipeline, cancelPipeline } from './pipeline'
 import { ensurePythonEnv, isEnvReady } from './python-env'
+import { registerNewSpeakers } from './speakers'
 
 const BITRATE_ESTIMATES: Record<string, number> = {
   '.m4a': 16000,
@@ -84,6 +85,21 @@ function processNext(): void {
       next.status = 'done'
       next.progressPercent = 100
       next.outputPath = outputPath
+      if (outputPath) {
+        try {
+          const { readFileSync, readdirSync } = require('fs')
+          const { join } = require('path')
+          const files = readdirSync(outputPath)
+          const jsonFile = files.find((f: string) => f.endsWith('.json') && f !== 'summary.json')
+          if (jsonFile) {
+            const data = JSON.parse(readFileSync(join(outputPath, jsonFile), 'utf-8'))
+            if (data.speaker_embeddings) {
+              const recordingId = outputPath.split('/').pop() || ''
+              registerNewSpeakers(recordingId, data.speaker_embeddings)
+            }
+          }
+        } catch {}
+      }
       next.completedAt = Date.now()
       processing = false
       emitState()

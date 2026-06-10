@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, writeFileSync, existsSync, statSync, rmSync 
 import { join, extname } from 'path'
 import { ipcMain, protocol, net } from 'electron'
 import { getConfig } from './config'
+import { getSpeakerMap } from './speakers'
 import type { RecordingListItem, RecordingDetail } from '../shared/types'
 
 const AUDIO_EXTENSIONS = ['.m4a', '.mp3', '.wav', '.flac', '.ogg', '.aac', '.opus', '.mp4']
@@ -133,8 +134,9 @@ export function getRecording(folderPath: string): RecordingDetail | null {
           segments: transcription.segments || [],
           language: transcription.language || 'en',
           duration: transcription.duration || 0,
+          speakerMap: getSpeakerMap(folderName),
         }
-      : { text: '', segments: [], language: 'en', duration: 0 },
+      : { text: '', segments: [], language: 'en', duration: 0, speakerMap: {} },
   }
 }
 
