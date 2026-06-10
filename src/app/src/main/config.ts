@@ -12,7 +12,7 @@ function configPath(): string {
 }
 
 function getRepoRoot(): string {
-  return join(__dirname, '..', '..', '..', '..', '..')
+  return join(__dirname, '..', '..', '..', '..')
 }
 
 export function getSourceRoot(): string {
