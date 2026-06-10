@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 
-app.setName('Maiscribe')
+app.setName('maiscribe')
 
 import { registerConfigIpc, migrateFromRepoRoot, ensureDataDirs } from './config'
 import { registerEnvIpc } from './env'

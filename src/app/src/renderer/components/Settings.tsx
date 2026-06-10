@@ -171,8 +171,8 @@ export function Settings({ onOpenWizard }: SettingsProps) {
           <div className="border-t border-gray-700 pt-4 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-sm">Store audio in Maiscribe</span>
-              <span className="text-xs text-gray-500 cursor-help" title="Save a copy of the audio file alongside the transcription in Maiscribe">?</span>
+              <span className="text-sm">Store audio in maiscribe</span>
+              <span className="text-xs text-gray-500 cursor-help" title="Save a copy of the audio file alongside the transcription in maiscribe">?</span>
             </div>
             <button
               type="button"
@@ -235,7 +235,7 @@ export function Settings({ onOpenWizard }: SettingsProps) {
       {tab === 'location' && (
         <section>
           <p className="text-sm text-gray-400 mb-3">
-            Where your Maiscribe data is stored.
+            Where your maiscribe data is stored.
           </p>
           <div className="flex gap-2">
             <input

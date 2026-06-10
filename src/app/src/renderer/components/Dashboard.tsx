@@ -36,7 +36,7 @@ export function Dashboard({ onOpenHistory, onNavigateToKeys }: DashboardProps) {
   return (
     <div className="flex flex-col gap-6 p-6 h-full" tabIndex={0} onKeyDown={handleKeyDown}>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-100">Maiscribe</h1>
+        <h1 className="text-xl font-bold text-gray-100">maiscribe</h1>
         {isProcessing && (
           <button
             onClick={() => window.api.queue.cancel()}

@@ -7,7 +7,43 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "preview": "electron-vite preview"
+    "preview": "electron-vite preview",
+    "dist": "electron-vite build && electron-builder --mac",
+    "dist:dir": "electron-vite build && electron-builder --mac --dir"
+  },
+  "build": {
+    "appId": "com.maiscribe.app",
+    "productName": "maiscribe",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "resources/**/*"
+    ],
+    "mac": {
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "dmg": {
+      "title": "maiscribe",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
   },
   "dependencies": {
     "chokidar": "^4.0.0",
@@ -21,6 +57,7 @@
     "@vitejs/plugin-react": "^4.4.0",
     "autoprefixer": "^10.4.0",
     "electron": "^35.7.5",
+    "electron-builder": "^26.15.2",
     "electron-vite": "^3.0.0",
     "playwright": "^1.60.0",
     "playwright-core": "^1.60.0",

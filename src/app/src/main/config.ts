@@ -20,7 +20,7 @@ export function getSourceRoot(): string {
 }
 
 function defaultBasePath(): string {
-  return join(app.getPath('documents'), 'Maiscribe')
+  return join(app.getPath('documents'), 'maiscribe')
 }
 
 function defaultConfig(): AppConfig {

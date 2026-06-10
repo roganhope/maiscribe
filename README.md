@@ -1,4 +1,4 @@
-# Maiscribe
+# maiscribe
 
 Welcome! This is a completely open source app to transcribe audio files with ease. Only supports mac for now.
 

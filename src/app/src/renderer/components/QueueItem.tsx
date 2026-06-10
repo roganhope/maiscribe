@@ -110,8 +110,8 @@ export function QueueItem({ item, onOpenHistory }: Props) {
               onChange={(e) => window.api.queue.updateOptions(item.id, { audioHandling: e.target.value as any })}
               className="text-xs bg-gray-700 rounded px-2 py-1 text-gray-200"
             >
-              <option value="store">Copy audio to Maiscribe, keep original</option>
-              <option value="store-and-delete">Move audio to Maiscribe, delete original</option>
+              <option value="store">Copy audio to maiscribe, keep original</option>
+              <option value="store-and-delete">Move audio to maiscribe, delete original</option>
               <option value="delete">Don't store audio, leave original</option>
             </select>
           </div>
