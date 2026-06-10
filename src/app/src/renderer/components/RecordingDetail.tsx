@@ -3,6 +3,7 @@ import type { RecordingDetail as RecordingDetailType } from '../../shared/types'
 import { AudioPlayer } from './AudioPlayer'
 import { SummaryView } from './SummaryView'
 import { TranscriptView } from './TranscriptView'
+import { SpeakerSubmodule } from './SpeakerSubmodule'
 
 interface Props {
   recording: RecordingDetailType
@@ -84,6 +85,15 @@ export function RecordingDetail({ recording, onUpdateTitle, onDelete }: Props) {
 
       {recording.audioFilePath && (
         <AudioPlayer filePath={recording.audioFilePath} />
+      )}
+
+      {Object.keys(recording.transcription.speakerMap).length > 0 && (
+        <SpeakerSubmodule
+          speakerMap={recording.transcription.speakerMap}
+          onSpeakerRenamed={() => {
+            window.api.history.get(recording.folderPath).then(() => {})
+          }}
+        />
       )}
 
       {recording.summary.sections.length > 0 && (
