@@ -21,6 +21,13 @@
       "out/**/*",
       "resources/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "../pipeline",
+        "to": "pipeline",
+        "filter": ["**/*.py", "requirements.txt"]
+      }
+    ],
     "mac": {
       "icon": "resources/icon.icns",
       "category": "public.app-category.productivity",
