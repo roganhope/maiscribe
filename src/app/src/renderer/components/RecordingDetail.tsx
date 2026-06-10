@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { RecordingDetail as RecordingDetailType } from '../../shared/types'
+import type { RecordingDetail as RecordingDetailType, Speaker } from '../../shared/types'
 import { AudioPlayer } from './AudioPlayer'
 import { SummaryView } from './SummaryView'
 import { TranscriptView } from './TranscriptView'
@@ -34,6 +34,20 @@ export function RecordingDetail({ recording, onUpdateTitle, onDelete }: Props) {
     setShowTranscript(false)
     setConfirmDelete(false)
   }, [recording.id])
+
+  const [speakerNames, setSpeakerNames] = useState<Record<string, string | null>>({})
+
+  useEffect(() => {
+    async function loadNames() {
+      const names: Record<string, string | null> = {}
+      for (const speakerId of Object.values(recording.transcription.speakerMap)) {
+        const speaker = await window.api.speakers.get(speakerId)
+        if (speaker) names[speakerId] = speaker.name
+      }
+      setSpeakerNames(names)
+    }
+    loadNames()
+  }, [recording.id, recording.transcription.speakerMap])
 
   function handleTitleSubmit() {
     const trimmed = titleDraft.trim()
@@ -114,7 +128,11 @@ export function RecordingDetail({ recording, onUpdateTitle, onDelete }: Props) {
           </button>
           {showTranscript && (
             <div className="mt-4">
-              <TranscriptView segments={recording.transcription.segments} />
+              <TranscriptView
+                segments={recording.transcription.segments}
+                speakerMap={recording.transcription.speakerMap}
+                speakerNames={speakerNames}
+              />
             </div>
           )}
         </section>
