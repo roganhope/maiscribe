@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSpeakers } from '../hooks/useSpeakers'
 import { SpeakerClipPlayer } from './SpeakerClipPlayer'
 import type { Speaker, SpeakerClip } from '../../shared/types'
@@ -16,6 +16,12 @@ export function SpeakersTab() {
 
   const unnamed = speakers.filter(s => !s.name)
   const named = speakers.filter(s => s.name)
+
+  useEffect(() => {
+    for (const s of unnamed) {
+      if (!clips[s.id]) loadClips(s.id)
+    }
+  }, [speakers])
 
   async function loadClips(id: string) {
     if (!clips[id]) {

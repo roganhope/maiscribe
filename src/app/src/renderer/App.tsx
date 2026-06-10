@@ -26,8 +26,9 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen text-gray-500">
-        Loading...
+      <div className="flex items-center justify-center h-screen flex-col gap-4">
+        <img src="./assets/icon.png" alt="" className="w-16 h-16 rounded-xl" />
+        <span className="text-gray-500 text-sm">Loading...</span>
       </div>
     )
   }

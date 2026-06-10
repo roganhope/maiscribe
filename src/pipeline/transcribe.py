@@ -49,13 +49,15 @@ def collect_from_folder(folder: Path) -> list[Path]:
 
 
 def _map_with_errors(
-    valid_files: list[Path], bytes_list: list[bytes], name_list: list[str]
+    valid_files: list[Path], bytes_list: list[bytes], name_list: list[str],
+    min_speakers: int = 2,
 ) -> list[tuple[Path, dict]]:
     """Wrap transcribe_audio.map so individual execution errors become error results."""
     from modal_app import transcribe_audio
 
     results: list[tuple[Path, dict]] = []
-    for file_path, result in zip(valid_files, transcribe_audio.map(bytes_list, name_list)):
+    min_speakers_list = [min_speakers] * len(valid_files)
+    for file_path, result in zip(valid_files, transcribe_audio.map(bytes_list, name_list, min_speakers_list)):
         results.append((file_path, result))
     return results
 
@@ -210,6 +212,10 @@ def main():
         "--outbox", type=Path, default=None,
         help="Custom output directory (defaults to ./outbox next to this script)",
     )
+    parser.add_argument(
+        "--min-speakers", type=int, default=2,
+        help="Minimum number of speakers to detect (default: 2)",
+    )
     args = parser.parse_args()
 
     if args.summarize is not None:
@@ -289,11 +295,13 @@ def main():
     name_list = [p.name for p in valid_files]
 
     try:
+        print("[step] Connecting to Modal", flush=True)
         with app.run():
-            results = _map_with_errors(valid_files, bytes_list, name_list)
+            print("[step] Transcribing on remote GPU", flush=True)
+            results = _map_with_errors(valid_files, bytes_list, name_list, min_speakers=args.min_speakers)
             for file_path, result in results:
                 try:
-                    print(f"[step] Transcribing", flush=True)
+                    print(f"[step] Saving results", flush=True)
                     if result["ok"]:
                         out_folder = make_outbox_folder(file_path)
 

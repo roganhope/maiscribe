@@ -3,7 +3,7 @@ interface Props {
 }
 
 export function AudioPlayer({ filePath }: Props) {
-  const src = `local-audio://${encodeURIComponent(filePath)}`
+  const src = 'local-audio://host' + filePath.split('/').map(s => encodeURIComponent(s)).join('/')
 
   return (
     <audio controls className="w-full h-10" src={src}>

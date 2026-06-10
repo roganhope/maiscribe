@@ -118,6 +118,47 @@ function runModalCommand(args: string[]): Promise<{ ok: boolean; error?: string 
   })
 }
 
+function updateTranscriptsForSpeaker(speaker: Speaker): void {
+  const config = getConfig()
+  if (!config) return
+  const outboxPath = join(config.basePath, 'outbox')
+
+  for (const appearance of speaker.appearances) {
+    const folderPath = join(outboxPath, appearance.recordingId)
+    if (!existsSync(folderPath)) continue
+    try {
+      const files = readdirSync(folderPath).filter(
+        f => f.endsWith('.json') && f !== 'summary.json'
+      )
+      for (const file of files) {
+        const filePath = join(folderPath, file)
+        const data = JSON.parse(readFileSync(filePath, 'utf-8'))
+        let changed = false
+
+        if (data.segments) {
+          for (const seg of data.segments) {
+            if (seg.speaker === appearance.originalLabel) {
+              seg.speaker = speaker.name || appearance.originalLabel
+              changed = true
+            }
+          }
+        }
+
+        if (data.speaker_embeddings && appearance.originalLabel in data.speaker_embeddings) {
+          const emb = data.speaker_embeddings[appearance.originalLabel]
+          delete data.speaker_embeddings[appearance.originalLabel]
+          data.speaker_embeddings[speaker.name || appearance.originalLabel] = emb
+          changed = true
+        }
+
+        if (changed) {
+          writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
+        }
+      }
+    } catch {}
+  }
+}
+
 export async function renameSpeaker(id: string, name: string): Promise<{ ok: boolean; error?: string }> {
   const store = readStore()
   const speaker = store.speakers[id]
@@ -126,6 +167,8 @@ export async function renameSpeaker(id: string, name: string): Promise<{ ok: boo
   const oldName = speaker.name
   speaker.name = name
   writeStore(store)
+
+  updateTranscriptsForSpeaker(speaker)
 
   if (oldName && speaker.enrolledOnModal) {
     await runModalCommand(['--unenroll', oldName])
@@ -183,6 +226,10 @@ export async function mergeSpeakers(keepId: string, removeId: string): Promise<v
 
   delete store.speakers[removeId]
   writeStore(store)
+
+  if (keep.name) {
+    updateTranscriptsForSpeaker(keep)
+  }
 }
 
 export async function deleteSpeaker(id: string): Promise<void> {

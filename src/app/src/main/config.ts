@@ -79,6 +79,10 @@ export function getConfig(): AppConfig | null {
     delete config.pythonPath
     dirty = true
   }
+  if (config.pipeline && !('minSpeakers' in config.pipeline)) {
+    config.pipeline.minSpeakers = 2
+    dirty = true
+  }
   if (dirty) writeFileSync(path, JSON.stringify(config, null, 2), 'utf-8')
   return config as AppConfig
 }

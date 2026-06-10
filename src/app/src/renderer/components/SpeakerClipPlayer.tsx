@@ -20,7 +20,7 @@ export function SpeakerClipPlayer({ clips }: Props) {
     const audio = audioRef.current
     audio.onended = () => setPlaying(null)
     audio.onerror = (e) => { console.error('[clip-player] error', e); setPlaying(null) }
-    audio.src = `local-audio://${encodeURIComponent(clip.filePath)}`
+    audio.src = 'local-audio://host' + clip.filePath.split('/').map(s => encodeURIComponent(s)).join('/')
     audio.play().catch((err) => { console.error('[clip-player] play rejected', err); setPlaying(null) })
     setPlaying(clip.filePath)
   }

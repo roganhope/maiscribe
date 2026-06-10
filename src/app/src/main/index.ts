@@ -1,5 +1,9 @@
-import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, dialog, protocol } from 'electron'
 import { join } from 'path'
+
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local-audio', privileges: { stream: true, bypassCSP: true } },
+])
 
 app.setName('maiscribe')
 

@@ -164,31 +164,11 @@ export function registerHistoryIpc(): void {
   })
 }
 
-const MIME_TYPES: Record<string, string> = {
-  '.wav': 'audio/wav',
-  '.m4a': 'audio/mp4',
-  '.mp3': 'audio/mpeg',
-  '.flac': 'audio/flac',
-  '.ogg': 'audio/ogg',
-  '.aac': 'audio/aac',
-  '.opus': 'audio/opus',
-  '.mp4': 'audio/mp4',
-}
-
 export function registerAudioProtocol(): void {
+  const { net } = require('electron')
   protocol.handle('local-audio', (request) => {
-    const filePath = decodeURIComponent(request.url.replace('local-audio://', ''))
-    if (!existsSync(filePath)) {
-      return new Response('Not found', { status: 404 })
-    }
-    const data = readFileSync(filePath)
-    const ext = extname(filePath).toLowerCase()
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream'
-    return new Response(data, {
-      headers: {
-        'Content-Type': contentType,
-        'Content-Length': String(data.byteLength),
-      },
-    })
+    const url = new URL(request.url)
+    const filePath = decodeURIComponent(url.pathname)
+    return net.fetch('file://' + filePath, { headers: request.headers })
   })
 }

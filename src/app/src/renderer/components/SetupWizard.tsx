@@ -70,6 +70,7 @@ export function SetupWizard({ onComplete }: Props) {
         audioHandling,
         autoWatch,
         autoSummarize,
+        minSpeakers: 2,
       },
       obsidian: {
         enabled: false,

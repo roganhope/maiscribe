@@ -213,6 +213,20 @@ export function Settings({ onOpenWizard }: SettingsProps) {
               <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${draft.pipeline.autoSummarize ? 'translate-x-5' : ''}`} />
             </button>
           </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Minimum speakers</span>
+              <span className="text-xs text-gray-500 cursor-help" title="Minimum number of speakers the diarizer should detect. Set to 2 for conversations, 1 for solo recordings.">?</span>
+            </div>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={draft.pipeline.minSpeakers ?? 2}
+              onChange={(e) => setDraft({ ...draft, pipeline: { ...draft.pipeline, minSpeakers: parseInt(e.target.value) || 2 } })}
+              className="w-16 bg-gray-700 rounded px-3 py-1.5 text-sm text-center"
+            />
+          </div>
         </section>
       )}
 

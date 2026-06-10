@@ -162,7 +162,7 @@ def _extract_speaker_clips(
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=1200,
 )
-def transcribe_audio(audio_bytes: bytes, filename: str) -> dict:
+def transcribe_audio(audio_bytes: bytes, filename: str, min_speakers: int = 2) -> dict:
     import os
     import tempfile
     import numpy as np
@@ -203,7 +203,7 @@ def transcribe_audio(audio_bytes: bytes, filename: str) -> dict:
         ]
 
         # Diarize against the wav
-        diarization_result = diarizer(wav_path)
+        diarization_result = diarizer(wav_path, min_speakers=min_speakers)
         # pyannote changed its return type across versions
         if hasattr(diarization_result, 'itertracks'):
             diarization = diarization_result

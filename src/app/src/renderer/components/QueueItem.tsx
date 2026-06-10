@@ -13,6 +13,7 @@ function formatTimeRemaining(item: QueueItemType): string | null {
   if (!item.startedAt || !item.estimatedDurationSec) return null
   const elapsed = (Date.now() - item.startedAt) / 1000
   const remaining = Math.max(0, item.estimatedDurationSec - elapsed)
+  if (remaining < 5) return 'almost done'
   if (remaining < 60) return `~${Math.round(remaining)}s left`
   return `~${Math.round(remaining / 60)}m left`
 }
@@ -61,7 +62,7 @@ export function QueueItem({ item, onOpenHistory }: Props) {
 
         {item.status === 'processing' && (
           <span className="text-xs text-gray-400">
-            {formatTimeRemaining(item) || `${percent}%`}
+            {percent > 0 ? `${percent}%` : ''}{percent > 0 && formatTimeRemaining(item) ? ' · ' : ''}{formatTimeRemaining(item) || ''}
           </span>
         )}
 
@@ -126,6 +127,17 @@ export function QueueItem({ item, onOpenHistory }: Props) {
               <option value="no">No</option>
             </select>
           </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-400">Min speakers:</label>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={item.options.minSpeakers}
+              onChange={(e) => window.api.queue.updateOptions(item.id, { minSpeakers: parseInt(e.target.value) || 2 })}
+              className="text-xs bg-gray-700 rounded px-2 py-1 text-gray-200 w-14"
+            />
+          </div>
         </div>
       )}
 
@@ -135,10 +147,14 @@ export function QueueItem({ item, onOpenHistory }: Props) {
             {getProgressLabel(item)}<span className="animate-ellipsis" />
           </span>
           <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-accent-500 rounded-full transition-all duration-1000 ease-linear"
-              style={{ width: `${Math.max(2, percent)}%` }}
-            />
+            {percent > 0 ? (
+              <div
+                className="h-full bg-accent-500 rounded-full transition-all duration-1000 ease-linear"
+                style={{ width: `${percent}%` }}
+              />
+            ) : (
+              <div className="h-full w-1/3 bg-accent-500 rounded-full animate-indeterminate" />
+            )}
           </div>
         </div>
       )}

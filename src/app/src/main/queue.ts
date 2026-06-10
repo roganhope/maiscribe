@@ -18,7 +18,7 @@ const BITRATE_ESTIMATES: Record<string, number> = {
   '.mp4': 20000,
 }
 
-const PROCESSING_SPEED_RATIO = 0.08
+const PROCESSING_SPEED_RATIO = 0.5
 
 function estimateAudioDuration(filePath: string): number | null {
   try {
@@ -52,13 +52,11 @@ let progressInterval: ReturnType<typeof setInterval> | null = null
 function updateProgress(item: QueueItem): void {
   if (!item.startedAt) return
   const elapsed = (Date.now() - item.startedAt) / 1000
-  let percent: number
   if (item.estimatedDurationSec) {
-    percent = Math.min(95, Math.round((elapsed / item.estimatedDurationSec) * 100))
+    item.progressPercent = Math.min(95, Math.round((elapsed / item.estimatedDurationSec) * 100))
   } else {
-    percent = Math.min(95, Math.round((1 - 1 / (1 + elapsed / 60)) * 100))
+    item.progressPercent = null
   }
-  item.progressPercent = percent
   emitState()
 }
 
@@ -141,6 +139,7 @@ export function addToQueue(filePaths: string[]): void {
       options: {
         audioHandling: config?.pipeline.audioHandling || 'delete',
         summarize: config?.pipeline.autoSummarize !== false,
+        minSpeakers: config?.pipeline.minSpeakers ?? 2,
       },
     })
   }

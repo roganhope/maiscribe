@@ -5,6 +5,7 @@ export interface AppConfig {
     audioHandling: 'store' | 'store-and-delete' | 'delete'
     autoWatch: boolean
     autoSummarize: boolean
+    minSpeakers: number
   }
   obsidian: {
     enabled: boolean
@@ -58,6 +59,7 @@ export interface RecordingDetail {
 export interface QueueItemOptions {
   audioHandling: 'store' | 'store-and-delete' | 'delete'
   summarize: boolean
+  minSpeakers: number
 }
 
 export interface QueueItem {

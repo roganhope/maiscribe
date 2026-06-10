@@ -29,6 +29,8 @@ export function runPipeline(filePath: string, callbacks: PipelineCallbacks, item
   }
   const audioHandling = itemOptions?.audioHandling || config?.pipeline.audioHandling || 'delete'
   args.push('--audio-handling', audioHandling)
+  const minSpeakers = itemOptions?.minSpeakers ?? config?.pipeline.minSpeakers ?? 2
+  args.push('--min-speakers', String(minSpeakers))
   const hasClaude = !!(envVars.CLAUDE_API_KEY || envVars.ANTHROPIC_API_KEY)
   const summarize = hasClaude && (itemOptions?.summarize ?? (config?.pipeline.autoSummarize !== false))
   if (!summarize) {
