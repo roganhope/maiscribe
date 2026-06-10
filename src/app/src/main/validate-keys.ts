@@ -148,7 +148,31 @@ async function syncModalSecret(
       ['-m', 'modal', 'secret', 'create', 'huggingface', `HUGGING_FACE_HUB_TOKEN=${hfToken}`],
       { env, timeout: 30_000 },
       (err, _stdout, stderr) => {
-        if (err) {
+        if (err && stderr.includes('already exists')) {
+          execFile(
+            pythonPath,
+            ['-m', 'modal', 'secret', 'delete', 'huggingface', '--yes'],
+            { env, timeout: 30_000 },
+            (err2) => {
+              if (err2) {
+                resolve({ ok: false, error: 'Failed to replace existing secret' })
+                return
+              }
+              execFile(
+                pythonPath,
+                ['-m', 'modal', 'secret', 'create', 'huggingface', `HUGGING_FACE_HUB_TOKEN=${hfToken}`],
+                { env, timeout: 30_000 },
+                (err3, _stdout3, stderr3) => {
+                  if (err3) {
+                    resolve({ ok: false, error: stderr3.trim() || err3.message })
+                  } else {
+                    resolve({ ok: true })
+                  }
+                }
+              )
+            }
+          )
+        } else if (err) {
           resolve({ ok: false, error: stderr.trim() || err.message })
         } else {
           resolve({ ok: true })
