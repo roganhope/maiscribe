@@ -43,8 +43,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
 const SIMILARITY_THRESHOLD = 0.85
 
-export function matchSpeakerEmbedding(embedding: number[]): Speaker | null {
-  const store = readStore()
+function findBestMatch(store: SpeakerStore, embedding: number[]): Speaker | null {
   let bestSpeaker: Speaker | null = null
   let bestScore = 0
   for (const speaker of Object.values(store.speakers)) {
@@ -57,6 +56,10 @@ export function matchSpeakerEmbedding(embedding: number[]): Speaker | null {
   return bestScore >= SIMILARITY_THRESHOLD ? bestSpeaker : null
 }
 
+export function matchSpeakerEmbedding(embedding: number[]): Speaker | null {
+  return findBestMatch(readStore(), embedding)
+}
+
 export function registerNewSpeakers(
   recordingId: string,
   embeddings: Record<string, number[]>
@@ -65,7 +68,9 @@ export function registerNewSpeakers(
   const labelToSpeakerId: Record<string, string> = {}
 
   for (const [label, embedding] of Object.entries(embeddings)) {
-    const match = matchSpeakerEmbedding(embedding)
+    // Match against the same store object we write back, so appearance
+    // pushes on the matched speaker are not lost.
+    const match = findBestMatch(store, embedding)
     if (match) {
       const alreadyAppeared = match.appearances.some(a => a.recordingId === recordingId)
       if (!alreadyAppeared) {
