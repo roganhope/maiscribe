@@ -68,10 +68,6 @@ export function SpeakerSubmodule({ speakerMap, onSpeakerRenamed }: Props) {
 
   const hasUnnamed = speakers.some(s => !s.name)
 
-  useEffect(() => {
-    setExpanded(hasUnnamed)
-  }, [hasUnnamed])
-
   if (speakers.length === 0) return null
 
   return (
