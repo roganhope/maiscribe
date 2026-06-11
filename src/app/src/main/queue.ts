@@ -105,7 +105,7 @@ function processNext(): void {
 
 export function addToQueue(filePaths: string[]): void {
   for (const filePath of filePaths) {
-    const already = items.some(i => i.filePath === filePath && (i.status === 'pending' || i.status === 'processing'))
+    const already = items.some(i => i.filePath === filePath && (i.status === 'staged' || i.status === 'pending' || i.status === 'processing'))
     if (already) continue
 
     const config = getConfig()
@@ -193,6 +193,11 @@ export function removeItem(id: string): void {
   emitState()
 }
 
+export function clearDone(): void {
+  items = items.filter(i => i.status !== 'done')
+  emitState()
+}
+
 export function updateItemOptions(id: string, options: Partial<QueueItemOptions>): void {
   const item = items.find(i => i.id === id)
   if (item && item.status === 'staged') {
@@ -225,6 +230,12 @@ export function registerQueueIpc(): void {
   ipcMain.on('queue:remove', (_event, id: string) => {
     removeItem(id)
   })
+
+  ipcMain.on('queue:clearDone', () => {
+    clearDone()
+  })
+
+  ipcMain.handle('queue:getState', () => getQueueState())
 
   ipcMain.on('pipeline:cancel', () => {
     cancelPipeline()

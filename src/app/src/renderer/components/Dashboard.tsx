@@ -12,6 +12,11 @@ export function Dashboard({ onOpenHistory, onNavigateToKeys }: DashboardProps) {
   const queue = useQueue()
   const [keysReady, setKeysReady] = useState<boolean | null>(null)
 
+  // Done items are dismissed when the user navigates away from this tab
+  useEffect(() => {
+    return () => { window.api.queue.clearDone() }
+  }, [])
+
   useEffect(() => {
     window.api.env.get().then((vars) => {
       const hasModal = !!(vars.MODAL_TOKEN_ID && vars.MODAL_TOKEN_SECRET)

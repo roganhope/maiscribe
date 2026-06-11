@@ -110,6 +110,8 @@ export interface SpeakerClip {
 export interface ElectronAPI {
   queue: {
     onState: (callback: (state: QueueState) => void) => () => void
+    getState: () => Promise<QueueState>
+    clearDone: () => void
     add: (filePaths: string[]) => void
     start: () => void
     startItem: (id: string) => void

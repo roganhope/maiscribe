@@ -8,6 +8,8 @@ const api: ElectronAPI = {
       ipcRenderer.on('queue:state', handler)
       return () => { ipcRenderer.removeListener('queue:state', handler) }
     },
+    getState: () => ipcRenderer.invoke('queue:getState'),
+    clearDone: () => ipcRenderer.send('queue:clearDone'),
     add: (filePaths) => ipcRenderer.send('queue:add', filePaths),
     start: () => ipcRenderer.send('queue:start'),
     startItem: (id) => ipcRenderer.send('queue:startItem', id),
