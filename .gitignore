@@ -12,3 +12,5 @@ src/app/dist/
 config.json
 .DS_Store
 docs/superpowers/
+node_modules/
+src/app/release/

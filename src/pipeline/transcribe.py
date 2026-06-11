@@ -8,7 +8,25 @@ from pathlib import Path
 AUDIO_EXTENSIONS = {".mp3", ".mp4", ".m4a", ".wav", ".flac", ".ogg", ".aac", ".opus"}
 
 OUTBOX_DIR = Path(__file__).parent / "outbox"
-INBOX_DIR = Path(__file__).parent / "inbox"
+
+# When True (--json), progress is emitted as JSON lines for the Electron app;
+# otherwise human-readable markers are printed for CLI use.
+JSON_OUTPUT = False
+
+
+def emit(event: str, **fields):
+    if JSON_OUTPUT:
+        print(json.dumps({"event": event, **fields}, ensure_ascii=False), flush=True)
+        return
+    if event == "step":
+        print(f"[step] {fields['message']}", flush=True)
+    elif event == "done":
+        unknown = fields.get("unknown_speakers") or []
+        label = f" (unknown speakers: {', '.join(unknown)})" if unknown else ""
+        print(f"[done] {fields['file']} → {fields['output']}{label}", flush=True)
+    elif event == "error":
+        prefix = f"{fields['file']}: " if fields.get("file") else ""
+        print(f"[error] {prefix}{fields['message']}", flush=True)
 
 
 def make_outbox_folder(input_path: Path) -> Path:
@@ -19,7 +37,8 @@ def make_outbox_folder(input_path: Path) -> Path:
 
 
 def write_error_log(file_path: Path, error: str, traceback: str | None = None):
-    errors_path = INBOX_DIR / "errors.txt"
+    OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
+    errors_path = OUTBOX_DIR / "errors.txt"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines = [f"[{timestamp}] {file_path.name}", f"  {error}"]
     if traceback:
@@ -35,7 +54,7 @@ def validate_files(paths: list[Path]) -> tuple[list[Path], list[str]]:
     errors = []
     for p in paths:
         if not p.exists() or not p.is_file():
-            errors.append(f"[error] {p.name}: file not found")
+            errors.append(f"{p.name}: file not found")
         else:
             valid.append(p)
     return valid, errors
@@ -216,7 +235,14 @@ def main():
         "--min-speakers", type=int, default=2,
         help="Minimum number of speakers to detect (default: 2)",
     )
+    parser.add_argument(
+        "--json", action="store_true",
+        help="Emit progress as JSON lines instead of human-readable markers",
+    )
     args = parser.parse_args()
+
+    global JSON_OUTPUT
+    JSON_OUTPUT = args.json
 
     if args.summarize is not None:
         if not args.summarize.exists():
@@ -286,7 +312,7 @@ def main():
 
     valid_files, errors = validate_files(file_paths)
     for e in errors:
-        print(e)
+        emit("error", message=e)
 
     if not valid_files:
         sys.exit(1)
@@ -295,13 +321,13 @@ def main():
     name_list = [p.name for p in valid_files]
 
     try:
-        print("[step] Connecting to Modal", flush=True)
+        emit("step", message="Connecting to Modal (first run after an update may take several minutes while the GPU image rebuilds)")
         with app.run():
-            print("[step] Transcribing on remote GPU", flush=True)
+            emit("step", message="Transcribing on remote GPU")
             results = _map_with_errors(valid_files, bytes_list, name_list, min_speakers=args.min_speakers)
             for file_path, result in results:
                 try:
-                    print(f"[step] Saving results", flush=True)
+                    emit("step", message="Saving results")
                     if result["ok"]:
                         out_folder = make_outbox_folder(file_path)
 
@@ -331,24 +357,26 @@ def main():
                         else:
                             file_path.unlink()
                         speakers = {s.get("speaker") for s in result["result"]["segments"]}
-                        unknown = [s for s in speakers if s and s.startswith("SPEAKER_")]
-                        label = f" (unknown speakers: {', '.join(sorted(unknown))})" if unknown else ""
-                        print(f"[done] {file_path.name} → {out_folder}{label}")
+                        unknown = sorted(s for s in speakers if s and s.startswith("SPEAKER_"))
                         if not args.no_summary:
-                            print(f"[step] Summarizing", flush=True)
+                            emit("step", message="Summarizing")
                             from summarize import summarize_file
                             summarize_file(json_path)
+                        emit(
+                            "done", file=file_path.name, output=str(out_folder),
+                            unknown_speakers=unknown,
+                        )
                     else:
                         write_error_log(file_path, result["error"], result.get("traceback"))
-                        print(f"[error] {file_path.name}: {result['error']}")
+                        emit("error", file=file_path.name, message=result["error"])
                 except Exception as exc:
                     write_error_log(file_path, str(exc))
-                    print(f"[error] {file_path.name}: {exc}")
+                    emit("error", file=file_path.name, message=str(exc))
     except Exception as exc:
         error_msg = _format_modal_error(exc)
         for file_path in valid_files:
             write_error_log(file_path, error_msg)
-        print(f"[error] {error_msg}")
+        emit("error", message=error_msg)
 
 
 if __name__ == "__main__":

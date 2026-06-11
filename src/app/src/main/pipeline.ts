@@ -36,50 +36,74 @@ export function runPipeline(filePath: string, callbacks: PipelineCallbacks, item
   if (!summarize) {
     args.push('--no-summary')
   }
+  args.push('--json')
 
-  currentProcess = spawn(pythonPath, args, {
+  const proc = spawn(pythonPath, args, {
     cwd: sourceRoot,
     env: { ...process.env, ...envVars },
   })
+  currentProcess = proc
 
   let stderr = ''
+  let stdoutBuffer = ''
 
-  currentProcess.stdout?.on('data', (data: Buffer) => {
-    const lines = data.toString().split('\n').filter(Boolean)
-    for (const line of lines) {
-      if (line.startsWith('[done]')) {
-        const match = line.match(/→\s*(.+?)(\s*\(|$)/)
-        const outputPath = match ? match[1].trim() : ''
-        callbacks.onDone(outputPath)
-      } else if (line.startsWith('[error]')) {
-        callbacks.onError(line.replace('[error] ', ''))
-      } else if (line.startsWith('[step] ')) {
-        callbacks.onProgress(line.replace('[step] ', ''))
-      } else {
+  const handleLine = (line: string): void => {
+    let event: { event?: string; message?: string; file?: string; output?: string } | null = null
+    if (line.startsWith('{')) {
+      try {
+        event = JSON.parse(line)
+      } catch {
+        event = null
+      }
+    }
+    switch (event?.event) {
+      case 'done':
+        callbacks.onDone(event.output || '')
+        break
+      case 'error':
+        callbacks.onError(event.file ? `${event.file}: ${event.message}` : event.message || 'Unknown error')
+        break
+      case 'step':
+        callbacks.onProgress(event.message || '')
+        break
+      default:
         callbacks.onProgress(line)
+    }
+  }
+
+  proc.stdout?.on('data', (data: Buffer) => {
+    stdoutBuffer += data.toString()
+    const lines = stdoutBuffer.split('\n')
+    stdoutBuffer = lines.pop() || ''
+    for (const line of lines) {
+      if (line.trim()) {
+        handleLine(line)
       }
     }
   })
 
-  currentProcess.stderr?.on('data', (data: Buffer) => {
+  proc.stderr?.on('data', (data: Buffer) => {
     stderr += data.toString()
   })
 
-  currentProcess.on('close', (code) => {
-    if (code !== 0 && code !== null) {
-      callbacks.onError(stderr.trim() || `Process exited with code ${code}`)
-    }
-    currentProcess = null
-  })
-
-  // 30 minute timeout
-  setTimeout(() => {
-    if (currentProcess) {
-      currentProcess.kill()
-      callbacks.onError('Pipeline timed out after 30 minutes')
+  // 30 minute timeout, cleared when this process exits
+  const timeout = setTimeout(() => {
+    proc.kill()
+    callbacks.onError('Pipeline timed out after 30 minutes')
+    if (currentProcess === proc) {
       currentProcess = null
     }
   }, 30 * 60 * 1000)
+
+  proc.on('close', (code) => {
+    clearTimeout(timeout)
+    if (code !== 0 && code !== null) {
+      callbacks.onError(stderr.trim() || `Process exited with code ${code}`)
+    }
+    if (currentProcess === proc) {
+      currentProcess = null
+    }
+  })
 }
 
 export function cancelPipeline(): void {

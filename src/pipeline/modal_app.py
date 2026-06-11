@@ -12,11 +12,17 @@ image = (
     )
     .apt_install("ffmpeg")
     .pip_install(
-        "torch",
-        "torchaudio",
+        "torch==2.5.1",
+        "torchaudio==2.5.1",
         extra_index_url="https://download.pytorch.org/whl/cu121",
     )
-    .pip_install("faster-whisper", "pyannote.audio", "omegaconf")
+    .pip_install(
+        "faster-whisper==1.1.1",
+        # ctranslate2 >= 4.5 requires cuDNN 9; base image ships cuDNN 8
+        "ctranslate2==4.4.0",
+        "pyannote.audio==4.0.4",
+        "omegaconf==2.3.0",
+    )
 )
 
 VOICE_REPO_PATH = "/voice-repo/speakers.json"
@@ -202,26 +208,11 @@ def transcribe_audio(audio_bytes: bytes, filename: str, min_speakers: int = 2) -
             for s in segs_iter
         ]
 
-        # Diarize against the wav
-        diarization_result = diarizer(wav_path, min_speakers=min_speakers)
-        # pyannote changed its return type across versions
-        if hasattr(diarization_result, 'itertracks'):
-            diarization = diarization_result
-        else:
-            public_attrs = [a for a in dir(diarization_result) if not a.startswith('_')]
-            # Try known attribute names used in different pyannote versions
-            found = False
-            for attr in public_attrs:
-                candidate = getattr(diarization_result, attr)
-                if hasattr(candidate, 'itertracks'):
-                    diarization = candidate
-                    found = True
-                    break
-            if not found:
-                raise ValueError(
-                    f"Cannot find Annotation in {type(diarization_result).__name__}. "
-                    f"Public attrs: {public_attrs}"
-                )
+        # Diarize against the wav. pyannote 4.x wraps the Annotation in an
+        # output object for some pipelines; unwrap when needed.
+        diarization = diarizer(wav_path, min_speakers=min_speakers)
+        if not hasattr(diarization, "itertracks"):
+            diarization = diarization.speaker_diarization
 
         # Collect speaker turns
         speaker_turns: dict[str, list[tuple[float, float]]] = {}
