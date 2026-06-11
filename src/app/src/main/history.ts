@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, writeFileSync, existsSync, statSync, rmSync 
 import { join, extname } from 'path'
 import { ipcMain, protocol } from 'electron'
 import { getConfig } from './config'
-import { getSpeakerMap } from './speakers'
+import { getSpeakerMap, removeAppearancesForRecording } from './speakers'
 import type { RecordingListItem, RecordingDetail } from '../shared/types'
 
 const AUDIO_EXTENSIONS = ['.m4a', '.mp3', '.wav', '.flac', '.ogg', '.aac', '.opus', '.mp4']
@@ -151,6 +151,7 @@ export function deleteRecording(folderPath: string): void {
   if (existsSync(folderPath)) {
     rmSync(folderPath, { recursive: true })
   }
+  removeAppearancesForRecording(folderPath.split('/').pop()!)
 }
 
 export function registerHistoryIpc(): void {

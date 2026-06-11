@@ -146,6 +146,17 @@ export async function deleteSpeaker(id: string): Promise<void> {
   writeStore(store)
 }
 
+export function removeAppearancesForRecording(recordingId: string): void {
+  const store = readStore()
+  let changed = false
+  for (const speaker of Object.values(store.speakers)) {
+    const before = speaker.appearances.length
+    speaker.appearances = speaker.appearances.filter(a => a.recordingId !== recordingId)
+    if (speaker.appearances.length !== before) changed = true
+  }
+  if (changed) writeStore(store)
+}
+
 export function getSpeakerNamesForRecording(recordingId: string): Record<string, string> {
   const store = readStore()
   const names: Record<string, string> = {}
@@ -209,7 +220,7 @@ export function getSpeakerQuotes(id: string): string[] {
   return quotes
 }
 
-export function getSpeakerClips(id: string): SpeakerClip[] {
+export function getSpeakerClips(id: string, recordingId?: string): SpeakerClip[] {
   const store = readStore()
   const speaker = store.speakers[id]
   if (!speaker) return []
@@ -219,7 +230,11 @@ export function getSpeakerClips(id: string): SpeakerClip[] {
   const outboxPath = join(config.basePath, 'outbox')
 
   const clips: SpeakerClip[] = []
+  // Stale appearances can resolve to the same folder via the stem fallback,
+  // so track resolved paths to avoid listing the same clip file twice.
+  const seenPaths = new Set<string>()
   for (const appearance of speaker.appearances) {
+    if (recordingId && appearance.recordingId !== recordingId) continue
     const folder = resolveRecordingFolder(outboxPath, appearance.recordingId)
     if (!folder) continue
     const clipsDir = join(folder, 'speakers')
@@ -229,10 +244,13 @@ export function getSpeakerClips(id: string): SpeakerClip[] {
         f => f.startsWith(appearance.originalLabel + '_clip') && f.endsWith('.wav')
       )
       for (const file of files) {
+        const filePath = join(clipsDir, file)
+        if (seenPaths.has(filePath)) continue
+        seenPaths.add(filePath)
         clips.push({
           speakerId: id,
           recordingId: appearance.recordingId,
-          filePath: join(clipsDir, file),
+          filePath,
           start: 0,
           end: 0,
         })
@@ -283,6 +301,6 @@ export function registerSpeakersIpc(): void {
   })
   ipcMain.handle('speakers:merge', (_event, keepId: string, removeId: string) => mergeSpeakers(keepId, removeId))
   ipcMain.handle('speakers:delete', (_event, id: string) => deleteSpeaker(id))
-  ipcMain.handle('speakers:getClips', (_event, id: string) => getSpeakerClips(id))
+  ipcMain.handle('speakers:getClips', (_event, id: string, recordingId?: string) => getSpeakerClips(id, recordingId))
   ipcMain.handle('speakers:getQuotes', (_event, id: string) => getSpeakerQuotes(id))
 }

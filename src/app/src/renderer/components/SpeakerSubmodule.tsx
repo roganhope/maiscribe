@@ -4,6 +4,7 @@ import { SpeakerClipPlayer } from './SpeakerClipPlayer'
 
 interface Props {
   speakerMap: Record<string, string>
+  recordingId: string
   onSpeakerRenamed: () => void
 }
 
@@ -16,7 +17,7 @@ export function speakerColor(index: number): string {
   return SPEAKER_COLORS[index % SPEAKER_COLORS.length]
 }
 
-export function SpeakerSubmodule({ speakerMap, onSpeakerRenamed }: Props) {
+export function SpeakerSubmodule({ speakerMap, recordingId, onSpeakerRenamed }: Props) {
   const [speakers, setSpeakers] = useState<Speaker[]>([])
   const [clips, setClips] = useState<Record<string, SpeakerClip[]>>({})
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -34,7 +35,7 @@ export function SpeakerSubmodule({ speakerMap, onSpeakerRenamed }: Props) {
         const speaker = await window.api.speakers.get(id)
         if (speaker) {
           loaded.push(speaker)
-          const c = await window.api.speakers.getClips(id)
+          const c = await window.api.speakers.getClips(id, recordingId)
           loadedClips[id] = c
         }
       }
@@ -42,7 +43,7 @@ export function SpeakerSubmodule({ speakerMap, onSpeakerRenamed }: Props) {
       setClips(loadedClips)
     }
     if (speakerIds.length > 0) load()
-  }, [speakerMap])
+  }, [speakerMap, recordingId])
 
   async function handleRename(id: string) {
     const trimmed = nameInput.trim()

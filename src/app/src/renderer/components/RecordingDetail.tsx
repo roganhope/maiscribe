@@ -104,6 +104,7 @@ export function RecordingDetail({ recording, onUpdateTitle, onDelete }: Props) {
       {Object.keys(recording.transcription.speakerMap).length > 0 && (
         <SpeakerSubmodule
           speakerMap={recording.transcription.speakerMap}
+          recordingId={recording.id}
           onSpeakerRenamed={() => {
             window.api.history.get(recording.folderPath).then(() => {})
           }}

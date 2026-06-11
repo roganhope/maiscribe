@@ -167,6 +167,81 @@ describe('getSpeakerNamesForRecording', () => {
   })
 })
 
+describe('getSpeakerClips', () => {
+  function seedClipFolder(recId: string, label: string) {
+    const clipsDir = join(basePath, 'outbox', recId, 'speakers')
+    mkdirSync(clipsDir, { recursive: true })
+    writeFileSync(join(clipsDir, `${label}_clip0.wav`), 'wav', 'utf-8')
+  }
+
+  it('returns only the requested recording clips when recordingId is given', async () => {
+    const rec1 = 'meeting_20260101_120000'
+    const rec2 = 'meeting_20260102_120000'
+    seedStore({
+      sp_a: makeSpeaker('sp_a', {
+        appearances: [
+          { recordingId: rec1, originalLabel: 'SPEAKER_00' },
+          { recordingId: rec2, originalLabel: 'SPEAKER_00' },
+        ],
+      }),
+    })
+    seedClipFolder(rec1, 'SPEAKER_00')
+    seedClipFolder(rec2, 'SPEAKER_00')
+    const { getSpeakerClips } = await loadSpeakers()
+
+    expect(getSpeakerClips('sp_a')).toHaveLength(2)
+
+    const filtered = getSpeakerClips('sp_a', rec1)
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0].recordingId).toBe(rec1)
+  })
+
+  it('does not return the same clip file twice when stale appearances resolve to the same folder', async () => {
+    // rec1's folder was deleted; the stem fallback resolves it to rec2's folder,
+    // which rec2's own appearance also points at.
+    const rec1 = 'meeting_20260101_120000'
+    const rec2 = 'meeting_20260102_120000'
+    seedStore({
+      sp_a: makeSpeaker('sp_a', {
+        appearances: [
+          { recordingId: rec1, originalLabel: 'SPEAKER_00' },
+          { recordingId: rec2, originalLabel: 'SPEAKER_00' },
+        ],
+      }),
+    })
+    seedClipFolder(rec2, 'SPEAKER_00')
+    const { getSpeakerClips } = await loadSpeakers()
+
+    const clips = getSpeakerClips('sp_a')
+    expect(clips).toHaveLength(1)
+  })
+})
+
+describe('removeAppearancesForRecording', () => {
+  it('removes only the matching appearances from all speakers', async () => {
+    seedStore({
+      sp_a: makeSpeaker('sp_a', {
+        appearances: [
+          { recordingId: 'rec1', originalLabel: 'SPEAKER_00' },
+          { recordingId: 'rec2', originalLabel: 'SPEAKER_00' },
+        ],
+      }),
+      sp_b: makeSpeaker('sp_b', {
+        appearances: [{ recordingId: 'rec1', originalLabel: 'SPEAKER_01' }],
+      }),
+    })
+    const { removeAppearancesForRecording } = await loadSpeakers()
+
+    removeAppearancesForRecording('rec1')
+
+    const store = readStoreFile()
+    expect(store.speakers.sp_a.appearances).toEqual([
+      { recordingId: 'rec2', originalLabel: 'SPEAKER_00' },
+    ])
+    expect(store.speakers.sp_b.appearances).toEqual([])
+  })
+})
+
 describe('registerNewSpeakers (regression)', () => {
   it('matches a close embedding to an existing speaker and records the appearance', async () => {
     seedStore({

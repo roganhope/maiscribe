@@ -169,7 +169,7 @@ export interface ElectronAPI {
     updateNotes: (id: string, notes: string) => Promise<void>
     merge: (keepId: string, removeId: string) => Promise<void>
     delete: (id: string) => Promise<void>
-    getClips: (id: string) => Promise<SpeakerClip[]>
+    getClips: (id: string, recordingId?: string) => Promise<SpeakerClip[]>
     getQuotes: (id: string) => Promise<string[]>
   }
 }
