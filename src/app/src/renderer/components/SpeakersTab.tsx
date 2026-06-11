@@ -109,6 +109,19 @@ export function SpeakersTab() {
                     </button>
                   )}
                   <SpeakerClipPlayer clips={clips[speaker.id] || []} />
+                  {confirmDelete === speaker.id ? (
+                    <div className="flex items-center gap-2 ml-auto">
+                      <button onClick={() => handleDelete(speaker.id)} className="text-xs text-red-400">Confirm</button>
+                      <button onClick={() => setConfirmDelete(null)} className="text-xs text-gray-500">Cancel</button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(speaker.id)}
+                      className="text-xs text-gray-400 hover:text-red-400 ml-auto"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
                 {(quotes[speaker.id] || []).length > 0 && (
                   <div className="mb-2 space-y-1">
