@@ -61,7 +61,7 @@ export function SpeakerSubmodule({ speakerMap, onSpeakerRenamed }: Props) {
   async function handleUnassign(id: string) {
     setSyncing(id)
     await window.api.speakers.unassign(id)
-    setSpeakers(prev => prev.map(s => s.id === id ? { ...s, name: null, enrolledOnModal: false } : s))
+    setSpeakers(prev => prev.map(s => s.id === id ? { ...s, name: null } : s))
     setSyncing(null)
     onSpeakerRenamed()
   }

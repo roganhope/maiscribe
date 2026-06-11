@@ -3,9 +3,9 @@ import { statSync } from 'fs'
 import { ipcMain, BrowserWindow } from 'electron'
 import type { QueueItem, QueueItemOptions, QueueState } from '../shared/types'
 import { getConfig } from './config'
-import { runPipeline, cancelPipeline } from './pipeline'
+import { runPipeline, runSummarize, cancelPipeline } from './pipeline'
 import { ensurePythonEnv, isEnvReady } from './python-env'
-import { registerNewSpeakers } from './speakers'
+import { registerNewSpeakers, getSpeakerNamesForRecording } from './speakers'
 
 const BITRATE_ESTIMATES: Record<string, number> = {
   '.m4a': 16000,
@@ -78,11 +78,14 @@ function processNext(): void {
       next.progress = line
       emitState()
     },
-    onDone: (outputPath) => {
+    onDone: async (outputPath) => {
       if (progressInterval) { clearInterval(progressInterval); progressInterval = null }
-      next.status = 'done'
-      next.progressPercent = 100
       next.outputPath = outputPath
+
+      // Match new speaker embeddings against the local store, then summarize
+      // with the resolved names so summaries reference real people.
+      let transcriptPath: string | null = null
+      const recordingId = outputPath ? outputPath.split('/').pop() || '' : ''
       if (outputPath) {
         try {
           const { readFileSync, readdirSync } = require('fs')
@@ -90,14 +93,23 @@ function processNext(): void {
           const files = readdirSync(outputPath)
           const jsonFile = files.find((f: string) => f.endsWith('.json') && f !== 'summary.json')
           if (jsonFile) {
-            const data = JSON.parse(readFileSync(join(outputPath, jsonFile), 'utf-8'))
+            transcriptPath = join(outputPath, jsonFile)
+            const data = JSON.parse(readFileSync(transcriptPath, 'utf-8'))
             if (data.speaker_embeddings) {
-              const recordingId = outputPath.split('/').pop() || ''
               registerNewSpeakers(recordingId, data.speaker_embeddings)
             }
           }
         } catch {}
       }
+
+      if (transcriptPath && next.options.summarize) {
+        next.progress = 'Summarizing'
+        emitState()
+        await runSummarize(transcriptPath, getSpeakerNamesForRecording(recordingId))
+      }
+
+      next.status = 'done'
+      next.progressPercent = 100
       next.completedAt = Date.now()
       processing = false
       emitState()

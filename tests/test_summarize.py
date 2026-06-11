@@ -39,6 +39,36 @@ def test_format_transcript_solo_speaker():
     assert result.count("SPEAKER_00:") == 1
 
 
+def test_format_transcript_substitutes_speaker_names():
+    data = {
+        "duration": 60.0,
+        "segments": [
+            {"start": 0.0, "end": 5.0, "text": "Hello", "speaker": "SPEAKER_00"},
+            {"start": 5.0, "end": 10.0, "text": "Hi there", "speaker": "SPEAKER_01"},
+            {"start": 10.0, "end": 15.0, "text": "Morning", "speaker": "SPEAKER_02"},
+        ],
+    }
+    result = format_transcript(data, speaker_names={"SPEAKER_00": "Alice", "SPEAKER_01": "Bob"})
+    assert "Alice: Hello" in result
+    assert "Bob: Hi there" in result
+    # Unmapped labels pass through unchanged
+    assert "SPEAKER_02: Morning" in result
+    assert "SPEAKER_00" not in result
+
+
+def test_format_transcript_name_map_collapses_merged_speakers():
+    """Two diarization labels mapped to the same person collapse into one turn."""
+    data = {
+        "duration": 30.0,
+        "segments": [
+            {"start": 0.0, "end": 5.0, "text": "First", "speaker": "SPEAKER_00"},
+            {"start": 5.0, "end": 10.0, "text": "second", "speaker": "SPEAKER_01"},
+        ],
+    }
+    result = format_transcript(data, speaker_names={"SPEAKER_00": "Alice", "SPEAKER_01": "Alice"})
+    assert result == "Alice: First second"
+
+
 def test_format_transcript_collapses_consecutive_same_speaker():
     data = {
         "duration": 30.0,

@@ -13,10 +13,12 @@ Ordered by importance. Details for pipeline items in [AUDIT.md](AUDIT.md).
 - [x] Replace regex stdout parsing with JSON-lines protocol between `transcribe.py` and `pipeline.ts` (AUDIT §3.3) — `--json` flag; CLI keeps human-readable output
 - [x] Pin pipeline dependencies in the Modal image; delete the pyannote version-sniffing block (AUDIT §4.1) — verified end-to-end on Modal with a real audio file (pyannote pinned to 4.0.4; 3.3.2 broke the `token=` kwarg)
 
-## P3 — The big simplification (own branch — touches data model)
+## P3 — The big simplification
 
-- [ ] Make Modal stateless: always return raw `SPEAKER_XX` labels + embeddings; do all speaker matching/naming locally. Deletes the voice-repo volume, 3 Modal functions, 4 CLI flags, and `runModalCommand` (AUDIT §1)
-- [ ] Stop rewriting transcript JSONs on rename; map labels at display time via the existing `speakerMap` (AUDIT §2)
+- [x] Make Modal stateless: always return raw `SPEAKER_XX` labels + embeddings; do all speaker matching/naming locally. Deleted the voice-repo volume mount, 3 Modal functions, 4 CLI flags, and `runModalCommand` (AUDIT §1)
+- [x] Stop rewriting transcript JSONs on rename; map labels at display time via the existing `speakerMap` (AUDIT §2)
+- [x] Summaries keep real names: queue now runs summarization *after* local speaker matching, passing `--speaker-names` to `transcribe.py --summarize`
+- [ ] Optional cleanup: the remote `voice-repo` Modal volume is now unused — delete with `modal volume delete voice-repo` whenever convenient
 
 ## P4 — Cleanups
 

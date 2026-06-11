@@ -27,7 +27,7 @@ export function useSpeakers() {
 
   const unassign = useCallback(async (id: string) => {
     await window.api.speakers.unassign(id)
-    setSpeakers(prev => prev.map(s => s.id === id ? { ...s, name: null, enrolledOnModal: false } : s))
+    setSpeakers(prev => prev.map(s => s.id === id ? { ...s, name: null } : s))
   }, [])
 
   const updateNotes = useCallback(async (id: string, notes: string) => {

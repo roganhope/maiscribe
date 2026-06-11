@@ -154,9 +154,6 @@ export function SpeakersTab() {
                 <div className="px-4 pb-4 border-t border-gray-700 pt-3">
                   <div className="flex items-center gap-3 mb-3">
                     <SpeakerClipPlayer clips={clips[speaker.id] || []} />
-                    {!speaker.enrolledOnModal && (
-                      <span className="text-xs text-yellow-500">not synced to Modal</span>
-                    )}
                   </div>
 
                   <div className="mb-3">

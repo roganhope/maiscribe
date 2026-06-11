@@ -95,7 +95,6 @@ export interface Speaker {
   name: string | null
   notes: string | null
   createdAt: string
-  enrolledOnModal: boolean
   embedding: number[]
   appearances: SpeakerAppearance[]
 }

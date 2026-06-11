@@ -21,7 +21,8 @@ vi.mock('./config', () => ({
   getConfig: () => null,
   getSourceRoot: () => '/tmp/pipeline',
 }))
-vi.mock('./env', () => ({ getEnvVars: () => ({}) }))
+let envVars: Record<string, string> = {}
+vi.mock('./env', () => ({ getEnvVars: () => envVars }))
 vi.mock('./python-env', () => ({ getPythonPath: () => '/usr/bin/python3' }))
 
 function makeCallbacks() {
@@ -34,7 +35,9 @@ async function loadPipeline() {
 
 beforeEach(() => {
   vi.useFakeTimers()
+  vi.clearAllMocks()
   spawned.length = 0
+  envVars = {}
   vi.resetModules()
 })
 
@@ -141,6 +144,15 @@ describe('pipeline JSON-lines protocol', () => {
     expect(cb.onDone).not.toHaveBeenCalled()
   })
 
+  it('always passes --no-summary even when an API key is set (queue owns summarization)', async () => {
+    envVars = { ANTHROPIC_API_KEY: 'sk-test' }
+    const { runPipeline } = await loadPipeline()
+    const { spawn } = await import('child_process')
+    runPipeline('/audio/a.m4a', makeCallbacks())
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[]
+    expect(args).toContain('--no-summary')
+  })
+
   it('handles a JSON event split across two data chunks', async () => {
     const { runPipeline } = await loadPipeline()
     const cb = makeCallbacks()
@@ -149,5 +161,39 @@ describe('pipeline JSON-lines protocol', () => {
     spawned[0].stdout.emit('data', Buffer.from(line.slice(0, 20)))
     spawned[0].stdout.emit('data', Buffer.from(line.slice(20)))
     expect(cb.onDone).toHaveBeenCalledWith('/out/a_1')
+  })
+})
+
+describe('runSummarize', () => {
+  it('spawns transcribe.py --summarize with the speaker-names map', async () => {
+    envVars = { ANTHROPIC_API_KEY: 'sk-test' }
+    const { runSummarize } = await loadPipeline()
+    const { spawn } = await import('child_process')
+
+    const promise = runSummarize('/out/a_1/a.json', { SPEAKER_00: 'Alice' })
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[]
+    expect(args).toContain('--summarize')
+    expect(args).toContain('/out/a_1/a.json')
+    expect(args).toContain('--speaker-names')
+    expect(args).toContain('{"SPEAKER_00":"Alice"}')
+
+    spawned[0].emit('close', 0)
+    await expect(promise).resolves.toEqual({ ok: true })
+  })
+
+  it('reports failure on non-zero exit', async () => {
+    envVars = { ANTHROPIC_API_KEY: 'sk-test' }
+    const { runSummarize } = await loadPipeline()
+    const promise = runSummarize('/out/a_1/a.json', {})
+    spawned[0].stderr.emit('data', Buffer.from('rate limited'))
+    spawned[0].emit('close', 1)
+    await expect(promise).resolves.toEqual({ ok: false, error: 'rate limited' })
+  })
+
+  it('skips without spawning when no Claude API key is configured', async () => {
+    const { runSummarize } = await loadPipeline()
+    const result = await runSummarize('/out/a_1/a.json', {})
+    expect(result.ok).toBe(false)
+    expect(spawned.length).toBe(0)
   })
 })

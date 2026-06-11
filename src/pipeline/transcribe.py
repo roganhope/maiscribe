@@ -97,98 +97,6 @@ def _format_modal_error(exc: Exception) -> str:
     return f"Pipeline error: {msg[:200]}"
 
 
-def run_enroll(json_path: Path):
-    from modal_app import app, enroll_speaker
-
-    data = json.loads(json_path.read_text(encoding="utf-8"))
-    embeddings: dict = data.get("speaker_embeddings", {})
-    segments: list = data.get("segments", [])
-
-    if not embeddings:
-        print("[error] no speaker embeddings found — re-transcribe to generate them")
-        sys.exit(1)
-
-    # Group sample lines by speaker — prefer longer, unique lines over short repeats
-    by_speaker: dict[str, list[str]] = {}
-    seen: dict[str, set] = {}
-    for seg in segments:
-        spk = seg.get("speaker", "UNKNOWN")
-        text = seg["text"].strip()
-        if spk not in seen:
-            seen[spk] = set()
-        if text and text not in seen[spk] and len(text) > 20:
-            by_speaker.setdefault(spk, []).append(text)
-            seen[spk].add(text)
-
-    # All unlabeled speakers — from segments (not just those with embeddings)
-    all_speakers = sorted({
-        seg.get("speaker", "UNKNOWN")
-        for seg in segments
-        if seg.get("speaker", "UNKNOWN").startswith("SPEAKER_")
-    })
-    already_named = [s for s in embeddings if not s.startswith("SPEAKER_")]
-
-    if already_named:
-        print(f"Already recognized: {', '.join(already_named)}")
-
-    if not all_speakers:
-        print("All speakers already labeled.")
-        return
-
-    # Collect names; track the mapping as we go
-    label_map: dict[str, str] = {}
-    to_enroll: list[tuple[str, list[float]]] = []
-    for speaker in all_speakers:
-        print(f"\n--- {speaker} ---")
-        for line in by_speaker.get(speaker, [])[:3]:
-            print(f'  "{line}"')
-        name = input(f"Name for {speaker} (Enter to skip): ").strip()
-        if name:
-            label_map[speaker] = name
-            if speaker in embeddings:
-                to_enroll.append((name, embeddings[speaker]))
-            else:
-                print(f"  (no voice embedding — will rename in JSON but won't auto-recognize in future files)")
-
-    if not to_enroll:
-        print("Nothing enrolled.")
-        return
-
-    print()
-    with app.run():
-        for name, emb in to_enroll:
-            result = enroll_speaker.remote(name, emb)
-            if result["ok"]:
-                print(f"[enrolled] {name}")
-            else:
-                print(f"[error] failed to enroll {name}")
-
-    # Rewrite the JSON with the new speaker labels
-    data["segments"] = [
-        {**seg, "speaker": label_map.get(seg.get("speaker", ""), seg.get("speaker", "UNKNOWN"))}
-        for seg in segments
-    ]
-    data["speaker_embeddings"] = {
-        label_map.get(spk, spk): emb for spk, emb in embeddings.items()
-    }
-    json_path.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-    print(f"[updated] {json_path}")
-
-
-def run_list_speakers():
-    from modal_app import app, list_speakers
-    with app.run():
-        names = list_speakers.remote()
-    if names:
-        print("Known speakers:")
-        for name in sorted(names):
-            print(f"  {name}")
-    else:
-        print("No speakers enrolled yet.")
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Transcribe audio files using Modal + faster-whisper + pyannote diarization"
@@ -199,24 +107,12 @@ def main():
         help="Folder of audio files to transcribe",
     )
     parser.add_argument(
-        "--enroll", type=Path, metavar="JSON",
-        help="Label unknown speakers in a transcription JSON and save to voice repo",
-    )
-    parser.add_argument(
-        "--list-speakers", action="store_true",
-        help="List all enrolled speakers in the voice repo",
-    )
-    parser.add_argument(
-        "--enroll-single", nargs=2, metavar=("NAME", "EMBEDDING_JSON"),
-        help="Enroll a single speaker by name and JSON-encoded embedding (non-interactive)",
-    )
-    parser.add_argument(
-        "--unenroll", type=str, metavar="NAME",
-        help="Remove a speaker from the Modal voice repo",
-    )
-    parser.add_argument(
         "--summarize", type=Path, metavar="JSON",
         help="Summarize an existing transcription JSON file",
+    )
+    parser.add_argument(
+        "--speaker-names", type=str, metavar="JSON", default=None,
+        help='JSON map of segment labels to display names, e.g. \'{"SPEAKER_00": "Alice"}\' (used with --summarize)',
     )
     parser.add_argument(
         "--no-summary", action="store_true",
@@ -248,45 +144,10 @@ def main():
         if not args.summarize.exists():
             print(f"[error] file not found: {args.summarize}")
             sys.exit(1)
+        speaker_names = json.loads(args.speaker_names) if args.speaker_names else None
         from summarize import summarize_file
-        success = summarize_file(args.summarize)
+        success = summarize_file(args.summarize, speaker_names)
         sys.exit(0 if success else 1)
-
-    if args.list_speakers:
-        run_list_speakers()
-        return
-
-    if args.enroll is not None:
-        if not args.enroll.exists():
-            print(f"[error] file not found: {args.enroll}")
-            sys.exit(1)
-        run_enroll(args.enroll)
-        return
-
-    if args.enroll_single is not None:
-        name, embedding_json = args.enroll_single
-        import json as _json
-        embedding = _json.loads(embedding_json)
-        from modal_app import app, enroll_speaker
-        with app.run():
-            result = enroll_speaker.remote(name, embedding)
-            if result["ok"]:
-                print(f"[enrolled] {name}")
-            else:
-                print(f"[error] failed to enroll {name}")
-                sys.exit(1)
-        return
-
-    if args.unenroll is not None:
-        from modal_app import app, unenroll_speaker
-        with app.run():
-            result = unenroll_speaker.remote(args.unenroll)
-            if result["ok"]:
-                print(f"[unenrolled] {args.unenroll}")
-            else:
-                print(f"[error] {result.get('error', 'unknown')}")
-                sys.exit(1)
-        return
 
     global OUTBOX_DIR
     if args.outbox is not None:

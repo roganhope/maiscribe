@@ -31,12 +31,9 @@ export function runPipeline(filePath: string, callbacks: PipelineCallbacks, item
   args.push('--audio-handling', audioHandling)
   const minSpeakers = itemOptions?.minSpeakers ?? config?.pipeline.minSpeakers ?? 2
   args.push('--min-speakers', String(minSpeakers))
-  const hasClaude = !!(envVars.CLAUDE_API_KEY || envVars.ANTHROPIC_API_KEY)
-  const summarize = hasClaude && (itemOptions?.summarize ?? (config?.pipeline.autoSummarize !== false))
-  if (!summarize) {
-    args.push('--no-summary')
-  }
-  args.push('--json')
+  // Summarization runs as a separate step after local speaker matching,
+  // so names make it into the summary — see runSummarize.
+  args.push('--no-summary', '--json')
 
   const proc = spawn(pythonPath, args, {
     cwd: sourceRoot,
@@ -111,4 +108,39 @@ export function cancelPipeline(): void {
     currentProcess.kill()
     currentProcess = null
   }
+}
+
+export function runSummarize(
+  jsonPath: string,
+  speakerNames: Record<string, string>
+): Promise<{ ok: boolean; error?: string }> {
+  const envVars = getEnvVars()
+  if (!envVars.CLAUDE_API_KEY && !envVars.ANTHROPIC_API_KEY) {
+    return Promise.resolve({ ok: false, error: 'no Claude API key configured' })
+  }
+
+  return new Promise((resolve) => {
+    const sourceRoot = getSourceRoot()
+    const args = [
+      join(sourceRoot, 'transcribe.py'),
+      '--summarize', jsonPath,
+      '--speaker-names', JSON.stringify(speakerNames),
+    ]
+    const proc = spawn(getPythonPath(), args, {
+      cwd: sourceRoot,
+      env: { ...process.env, ...envVars },
+    })
+
+    let stderr = ''
+    proc.stderr?.on('data', (data: Buffer) => {
+      stderr += data.toString()
+    })
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ ok: true })
+      } else {
+        resolve({ ok: false, error: stderr.trim() || `summarize exited with code ${code}` })
+      }
+    })
+  })
 }

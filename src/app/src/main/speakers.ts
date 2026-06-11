@@ -2,11 +2,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import { join } from 'path'
 import { app, ipcMain } from 'electron'
 import { randomBytes } from 'crypto'
-import { spawn } from 'child_process'
-import { getConfig, getSourceRoot } from './config'
-import { getEnvVars } from './env'
-import { getPythonPath } from './python-env'
-import type { Speaker, SpeakerAppearance, SpeakerClip } from '../shared/types'
+import { getConfig } from './config'
+import type { Speaker, SpeakerClip } from '../shared/types'
 
 interface SpeakerStore {
   speakers: Record<string, Speaker>
@@ -84,7 +81,6 @@ export function registerNewSpeakers(
         name: null,
         notes: null,
         createdAt: new Date().toISOString(),
-        enrolledOnModal: false,
         embedding,
         appearances: [{ recordingId, originalLabel: label }],
       }
@@ -97,95 +93,14 @@ export function registerNewSpeakers(
   return labelToSpeakerId
 }
 
-function runModalCommand(args: string[]): Promise<{ ok: boolean; error?: string }> {
-  return new Promise((resolve) => {
-    const pythonPath = getPythonPath()
-    const sourceRoot = getSourceRoot()
-    const transcriptPath = join(sourceRoot, 'transcribe.py')
-    const envVars = getEnvVars()
-
-    const proc = spawn(pythonPath, [transcriptPath, ...args], {
-      cwd: sourceRoot,
-      env: { ...process.env, ...envVars },
-    })
-
-    let stdout = ''
-    let stderr = ''
-    proc.stdout?.on('data', (d: Buffer) => { stdout += d.toString() })
-    proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
-    proc.on('close', (code) => {
-      if (code === 0) {
-        resolve({ ok: true })
-      } else {
-        resolve({ ok: false, error: stderr.trim() || stdout.trim() || `exit code ${code}` })
-      }
-    })
-  })
-}
-
-function updateTranscriptsForSpeaker(speaker: Speaker): void {
-  const config = getConfig()
-  if (!config) return
-  const outboxPath = join(config.basePath, 'outbox')
-
-  for (const appearance of speaker.appearances) {
-    const folderPath = join(outboxPath, appearance.recordingId)
-    if (!existsSync(folderPath)) continue
-    try {
-      const files = readdirSync(folderPath).filter(
-        f => f.endsWith('.json') && f !== 'summary.json'
-      )
-      for (const file of files) {
-        const filePath = join(folderPath, file)
-        const data = JSON.parse(readFileSync(filePath, 'utf-8'))
-        let changed = false
-
-        if (data.segments) {
-          for (const seg of data.segments) {
-            if (seg.speaker === appearance.originalLabel) {
-              seg.speaker = speaker.name || appearance.originalLabel
-              changed = true
-            }
-          }
-        }
-
-        if (data.speaker_embeddings && appearance.originalLabel in data.speaker_embeddings) {
-          const emb = data.speaker_embeddings[appearance.originalLabel]
-          delete data.speaker_embeddings[appearance.originalLabel]
-          data.speaker_embeddings[speaker.name || appearance.originalLabel] = emb
-          changed = true
-        }
-
-        if (changed) {
-          writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
-        }
-      }
-    } catch {}
-  }
-}
-
 export async function renameSpeaker(id: string, name: string): Promise<{ ok: boolean; error?: string }> {
   const store = readStore()
   const speaker = store.speakers[id]
   if (!speaker) return { ok: false, error: 'speaker not found' }
 
-  const oldName = speaker.name
   speaker.name = name
   writeStore(store)
-
-  updateTranscriptsForSpeaker(speaker)
-
-  if (oldName && speaker.enrolledOnModal) {
-    await runModalCommand(['--unenroll', oldName])
-  }
-
-  const embeddingJson = JSON.stringify(speaker.embedding)
-  const result = await runModalCommand(['--enroll-single', name, embeddingJson])
-  if (result.ok) {
-    speaker.enrolledOnModal = true
-    writeStore(store)
-  }
-  return result
+  return { ok: true }
 }
 
 export async function unassignSpeaker(id: string): Promise<void> {
@@ -193,12 +108,7 @@ export async function unassignSpeaker(id: string): Promise<void> {
   const speaker = store.speakers[id]
   if (!speaker) return
 
-  if (speaker.name && speaker.enrolledOnModal) {
-    await runModalCommand(['--unenroll', speaker.name])
-  }
-
   speaker.name = null
-  speaker.enrolledOnModal = false
   writeStore(store)
 }
 
@@ -225,29 +135,29 @@ export async function mergeSpeakers(keepId: string, removeId: string): Promise<v
     if (!exists) keep.appearances.push(app)
   }
 
-  if (remove.name && remove.enrolledOnModal) {
-    await runModalCommand(['--unenroll', remove.name])
-  }
-
   delete store.speakers[removeId]
   writeStore(store)
-
-  if (keep.name) {
-    updateTranscriptsForSpeaker(keep)
-  }
 }
 
 export async function deleteSpeaker(id: string): Promise<void> {
   const store = readStore()
-  const speaker = store.speakers[id]
-  if (!speaker) return
-
-  if (speaker.name && speaker.enrolledOnModal) {
-    await runModalCommand(['--unenroll', speaker.name])
-  }
-
+  if (!store.speakers[id]) return
   delete store.speakers[id]
   writeStore(store)
+}
+
+export function getSpeakerNamesForRecording(recordingId: string): Record<string, string> {
+  const store = readStore()
+  const names: Record<string, string> = {}
+  for (const speaker of Object.values(store.speakers)) {
+    if (!speaker.name) continue
+    for (const appearance of speaker.appearances) {
+      if (appearance.recordingId === recordingId) {
+        names[appearance.originalLabel] = speaker.name
+      }
+    }
+  }
+  return names
 }
 
 function resolveRecordingFolder(outboxPath: string, recordingId: string): string | null {

@@ -38,14 +38,16 @@ Available section types:
 Return ONLY valid JSON. No markdown fences, no explanation."""
 
 
-def format_transcript(data: dict) -> str:
+def format_transcript(data: dict, speaker_names: dict[str, str] | None = None) -> str:
     segments = data.get("segments", [])
     if not segments:
         return ""
 
+    speaker_names = speaker_names or {}
     collapsed = []
     for seg in segments:
         speaker = seg.get("speaker", "UNKNOWN")
+        speaker = speaker_names.get(speaker, speaker)
         text = seg.get("text", "").strip()
         if not text:
             continue
@@ -158,11 +160,11 @@ def _load_env():
                 os.environ.setdefault(key.strip(), value.strip())
 
 
-def summarize_file(json_path: Path) -> bool:
+def summarize_file(json_path: Path, speaker_names: dict[str, str] | None = None) -> bool:
     _load_env()
     data = json.loads(json_path.read_text(encoding="utf-8"))
 
-    transcript_text = format_transcript(data)
+    transcript_text = format_transcript(data, speaker_names)
     if not transcript_text:
         print(f"[warn] no segments in {json_path.name} — skipping summary")
         return False

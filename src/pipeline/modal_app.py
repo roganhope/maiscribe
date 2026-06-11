@@ -3,7 +3,6 @@ import modal
 app = modal.App("audio-transcription")
 
 model_volume = modal.Volume.from_name("whisper-models", create_if_missing=True)
-voice_repo_volume = modal.Volume.from_name("voice-repo", create_if_missing=True)
 
 image = (
     modal.Image.from_registry(
@@ -24,9 +23,6 @@ image = (
         "omegaconf==2.3.0",
     )
 )
-
-VOICE_REPO_PATH = "/voice-repo/speakers.json"
-SIMILARITY_THRESHOLD = 0.85
 
 _whisper_model = None
 _diarization_pipeline = None
@@ -69,42 +65,6 @@ def _load_embedding(token: str):
         ).to(torch.device("cuda"))
         _embedding_inference = Inference(model, window="whole")
     return _embedding_inference
-
-
-def _load_voice_repo() -> dict:
-    import os
-    import json
-    import numpy as np
-    if not os.path.exists(VOICE_REPO_PATH):
-        return {}
-    with open(VOICE_REPO_PATH) as f:
-        data = json.load(f)
-    return {name: np.array(emb) for name, emb in data.items()}
-
-
-def _save_voice_repo(repo: dict):
-    import os
-    import json
-    os.makedirs(os.path.dirname(VOICE_REPO_PATH), exist_ok=True)
-    with open(VOICE_REPO_PATH, "w") as f:
-        json.dump({name: emb.tolist() for name, emb in repo.items()}, f)
-    voice_repo_volume.commit()
-
-
-def _cosine_similarity(a, b) -> float:
-    import numpy as np
-    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
-
-
-def _match_speaker(embedding, voice_repo: dict) -> tuple[str | None, float]:
-    best_name, best_score = None, 0.0
-    for name, stored_emb in voice_repo.items():
-        score = _cosine_similarity(embedding, stored_emb)
-        if score > best_score:
-            best_score, best_name = score, name
-    if best_score >= SIMILARITY_THRESHOLD:
-        return best_name, best_score
-    return None, best_score
 
 
 def _extract_speaker_clips(
@@ -164,7 +124,7 @@ def _extract_speaker_clips(
 @app.function(
     gpu="T4",
     image=image,
-    volumes={"/models": model_volume, "/voice-repo": voice_repo_volume},
+    volumes={"/models": model_volume},
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=1200,
 )
@@ -179,7 +139,6 @@ def transcribe_audio(audio_bytes: bytes, filename: str, min_speakers: int = 2) -
     whisper = _load_whisper()
     diarizer = _load_diarization(token)
     embedder = _load_embedding(token)
-    voice_repo = _load_voice_repo()
 
     import subprocess
 
@@ -240,25 +199,15 @@ def transcribe_audio(audio_bytes: bytes, filename: str, min_speakers: int = 2) -
             if embs:
                 speaker_embeddings[speaker] = np.mean(embs, axis=0)
 
-        # Match each speaker against the voice repo
-        speaker_labels: dict[str, str] = {}
-        # Seed every speaker from diarization so none fall through to UNKNOWN
-        for speaker in speaker_turns:
-            speaker_labels[speaker] = speaker
-        # Override with matched name where we have an embedding
-        for speaker, emb in speaker_embeddings.items():
-            name, _ = _match_speaker(emb, voice_repo)
-            if name:
-                speaker_labels[speaker] = name
-
-        # Assign speaker label to each transcript segment by max time overlap
+        # Assign raw diarization label to each transcript segment by max time
+        # overlap. Matching labels to known people happens locally in the app.
         def assign_speaker(start: float, end: float) -> str:
             best_spk, best_overlap = None, 0.0
             for turn, _, spk in diarization.itertracks(yield_label=True):
                 overlap = max(0.0, min(end, turn.end) - max(start, turn.start))
                 if overlap > best_overlap:
                     best_overlap, best_spk = overlap, spk
-            return speaker_labels.get(best_spk, "UNKNOWN") if best_spk else "UNKNOWN"
+            return best_spk or "UNKNOWN"
 
         labeled_segments = [
             {**seg, "speaker": assign_speaker(seg["start"], seg["end"])}
@@ -275,11 +224,8 @@ def transcribe_audio(audio_bytes: bytes, filename: str, min_speakers: int = 2) -
                 "segments": labeled_segments,
                 "language": "en",
                 "duration": info.duration,
-                # stored for enrollment — keyed by final label so the user sees
-                # "SPEAKER_00" for unknowns and real names for matched speakers
                 "speaker_embeddings": {
-                    speaker_labels[spk]: emb.tolist()
-                    for spk, emb in speaker_embeddings.items()
+                    spk: emb.tolist() for spk, emb in speaker_embeddings.items()
                 },
                 "speaker_clips": speaker_clips,
             },
@@ -296,42 +242,3 @@ def transcribe_audio(audio_bytes: bytes, filename: str, min_speakers: int = 2) -
                     pass
 
 
-@app.function(
-    image=image,
-    volumes={"/voice-repo": voice_repo_volume},
-    timeout=60,
-)
-def enroll_speaker(name: str, embedding: list[float]) -> dict:
-    import numpy as np
-    repo = _load_voice_repo()
-    new_emb = np.array(embedding)
-    if name in repo:
-        # Running average with existing embedding
-        repo[name] = (repo[name] + new_emb) / 2
-    else:
-        repo[name] = new_emb
-    _save_voice_repo(repo)
-    return {"ok": True, "enrolled": name}
-
-
-@app.function(
-    image=image,
-    volumes={"/voice-repo": voice_repo_volume},
-    timeout=60,
-)
-def list_speakers() -> list[str]:
-    return list(_load_voice_repo().keys())
-
-
-@app.function(
-    image=image,
-    volumes={"/voice-repo": voice_repo_volume},
-    timeout=60,
-)
-def unenroll_speaker(name: str) -> dict:
-    repo = _load_voice_repo()
-    if name in repo:
-        del repo[name]
-        _save_voice_repo(repo)
-        return {"ok": True, "removed": name}
-    return {"ok": False, "error": "not found"}
