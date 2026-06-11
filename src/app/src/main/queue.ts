@@ -1,36 +1,11 @@
 import { v4 as uuidv4 } from 'uuid'
-import { statSync } from 'fs'
 import { ipcMain, BrowserWindow } from 'electron'
 import type { QueueItem, QueueItemOptions, QueueState } from '../shared/types'
 import { getConfig } from './config'
 import { runPipeline, runSummarize, cancelPipeline } from './pipeline'
 import { ensurePythonEnv, isEnvReady } from './python-env'
 import { registerNewSpeakers, getSpeakerNamesForRecording } from './speakers'
-
-const BITRATE_ESTIMATES: Record<string, number> = {
-  '.m4a': 16000,
-  '.mp3': 16000,
-  '.aac': 16000,
-  '.ogg': 16000,
-  '.opus': 12000,
-  '.wav': 176400,
-  '.flac': 88200,
-  '.mp4': 20000,
-}
-
-const PROCESSING_SPEED_RATIO = 0.5
-
-function estimateAudioDuration(filePath: string): number | null {
-  try {
-    const stat = statSync(filePath)
-    const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
-    const bytesPerSec = BITRATE_ESTIMATES[ext]
-    if (!bytesPerSec) return null
-    return stat.size / bytesPerSec
-  } catch {
-    return null
-  }
-}
+import { getAudioDurationSec, estimateProcessingSeconds } from './estimate'
 
 let items: QueueItem[] = []
 let processing = false
@@ -133,9 +108,8 @@ export function addToQueue(filePaths: string[]): void {
     const already = items.some(i => i.filePath === filePath && (i.status === 'pending' || i.status === 'processing'))
     if (already) continue
 
-    const audioDuration = estimateAudioDuration(filePath)
     const config = getConfig()
-    items.push({
+    const item: QueueItem = {
       id: uuidv4(),
       filePath,
       fileName: filePath.split('/').pop() || filePath,
@@ -147,12 +121,19 @@ export function addToQueue(filePaths: string[]): void {
       addedAt: Date.now(),
       startedAt: null,
       completedAt: null,
-      estimatedDurationSec: audioDuration ? Math.round(audioDuration * PROCESSING_SPEED_RATIO) : null,
+      estimatedDurationSec: null,
       options: {
         audioHandling: config?.pipeline.audioHandling || 'delete',
         summarize: config?.pipeline.autoSummarize !== false,
         minSpeakers: config?.pipeline.minSpeakers ?? 2,
       },
+    }
+    items.push(item)
+
+    // Read the real audio duration asynchronously and refine the estimate
+    getAudioDurationSec(filePath).then((duration) => {
+      item.estimatedDurationSec = estimateProcessingSeconds(duration)
+      emitState()
     })
   }
   emitState()
