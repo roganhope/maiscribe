@@ -1,5 +1,7 @@
 import { forwardRef, useImperativeHandle } from 'react'
 import { useHistory } from '../hooks/useHistory'
+import { useRecordingFilters } from '../hooks/useRecordingFilters'
+import { RecordingFilterBar } from './RecordingFilterBar'
 import { RecordingSidebar } from './RecordingSidebar'
 import { RecordingDetail } from './RecordingDetail'
 
@@ -19,6 +21,18 @@ export const HistoryView = forwardRef<HistoryViewHandle>(function HistoryView(_p
     deleteRecording,
     refresh,
   } = useHistory()
+
+  const {
+    filters,
+    setQuery,
+    setSpeaker,
+    setDatePreset,
+    setCustomRange,
+    clear,
+    filteredRecordings,
+    speakerOptions,
+    isActive,
+  } = useRecordingFilters(recordings)
 
   useImperativeHandle(ref, () => ({
     selectByPath(folderPath: string) {
@@ -44,12 +58,27 @@ export const HistoryView = forwardRef<HistoryViewHandle>(function HistoryView(_p
 
   return (
     <div className="flex h-full">
-      <div className="w-72 border-r border-gray-700 flex-shrink-0">
-        <RecordingSidebar
-          recordings={recordings}
-          selectedId={selectedId}
-          onSelect={selectRecording}
-        />
+      <div className="w-72 border-r border-gray-700 flex-shrink-0 flex flex-col">
+        {recordings.length > 0 && (
+          <RecordingFilterBar
+            filters={filters}
+            speakerOptions={speakerOptions}
+            isActive={isActive}
+            onQueryChange={setQuery}
+            onSpeakerChange={setSpeaker}
+            onDatePresetChange={setDatePreset}
+            onCustomRangeChange={setCustomRange}
+            onClear={clear}
+          />
+        )}
+        <div className="flex-1 min-h-0">
+          <RecordingSidebar
+            recordings={filteredRecordings}
+            selectedId={selectedId}
+            onSelect={selectRecording}
+            filtersActive={isActive}
+          />
+        </div>
       </div>
       <div className="flex-1 min-w-0">
         {detailLoading && (

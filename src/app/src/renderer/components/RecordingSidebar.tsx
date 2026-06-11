@@ -5,13 +5,14 @@ interface Props {
   recordings: RecordingListItem[]
   selectedId: string | null
   onSelect: (id: string) => void
+  filtersActive?: boolean
 }
 
-export function RecordingSidebar({ recordings, selectedId, onSelect }: Props) {
+export function RecordingSidebar({ recordings, selectedId, onSelect, filtersActive }: Props) {
   if (recordings.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-500 text-sm p-4">
-        No recordings yet.
+      <div className="flex items-center justify-center h-full text-gray-500 text-sm p-4 text-center">
+        {filtersActive ? 'No recordings match your filters.' : 'No recordings yet.'}
       </div>
     )
   }
