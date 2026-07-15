@@ -51,7 +51,10 @@ On first launch, the setup wizard walks you through configuration:
 
 2. **Modal Key** `REQUIRED` — [Modal](https://modal.com) is a serverless GPU platform. This key is needed to run transcription on remote GPUs so you don't use compute on your own machine.
 
-3. **Hugging Face Token** `REQUIRED` — We use two gated models: [faster-whisper large-v3](https://huggingface.co/Systran/faster-whisper-large-v3) for transcription and [pyannote speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) for identifying who's talking. You must accept each model's license on Hugging Face before your token will work.
+3. **Hugging Face Token** `REQUIRED` — Used for speaker diarization ("who's talking") via pyannote, plus downloading [faster-whisper large-v3](https://huggingface.co/Systran/faster-whisper-large-v3) for transcription. You must accept the license on **all three** gated pyannote model pages before your token will work:
+   - [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1)
+   - [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)
+   - [pyannote/embedding](https://huggingface.co/pyannote/embedding)
 
 4. **Claude API Key** `OPTIONAL` — An [Anthropic API](https://console.anthropic.com) key. This is only needed if you want post-transcription summaries (title, topics, action items, etc.).
 
