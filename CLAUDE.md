@@ -33,6 +33,13 @@ pytest -k test_name             # run a single test
 
 Tests use `sys.path.insert` to add `src/pipeline` — no package install needed, just activate the venv.
 
+### Utility Scripts (from repo root)
+```bash
+node scripts/check-hf-access.mjs <HF_TOKEN>   # verify HF token has access to the gated pyannote models
+```
+
+`check-hf-access.mjs` is a standalone port of the HF eligibility logic in `src/app/src/main/validate-keys.ts`. It checks the three required pyannote models and prints pass/fail per model. Exit codes: 0 = all pass, 1 = some fail, 2 = no token.
+
 ## Architecture
 
 ### Pipeline (`src/pipeline/`)
