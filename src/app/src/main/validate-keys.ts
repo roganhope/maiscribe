@@ -9,6 +9,10 @@ interface ValidationResult {
   error?: string
 }
 
+interface ModalValidationResult extends ValidationResult {
+  workspace?: string
+}
+
 function httpsJson(options: {
   hostname: string
   path: string
@@ -37,22 +41,73 @@ function httpsJson(options: {
   })
 }
 
-async function validateModal(tokenId: string, tokenSecret: string): Promise<ValidationResult> {
-  try {
-    const res = await httpsJson({
-      hostname: 'api.modal.com',
-      path: '/api/v1/apps',
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${tokenId}:${tokenSecret}`,
-      },
-    })
-    if (res.status === 200) return { ok: true }
-    if (res.status === 401) return { ok: false, error: 'Invalid Modal tokens' }
-    return { ok: false, error: `Unexpected response from Modal (${res.status})` }
-  } catch (err: any) {
-    return { ok: false, error: err.message }
+// The modal CLI prints errors inside a rich-formatted box, so the last line of
+// stderr is box-drawing characters rather than the reason.
+const BOX_CHARS = '─│╭╮╰╯━┃┏┓┗┛═║╔╗╚╝┌┐└┘├┤┬┴┼ '
+
+export function cleanModalCliError(text: string): string {
+  const stripped = text.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+  for (const raw of stripped.split('\n')) {
+    let line = raw.trim()
+    while (line.length && BOX_CHARS.includes(line[0])) line = line.slice(1)
+    while (line.length && BOX_CHARS.includes(line[line.length - 1])) line = line.slice(0, -1)
+    line = line.trim()
+    if (!line || line.toLowerCase() === 'error') continue
+    return line
   }
+  return ''
+}
+
+// `modal token info` prints "Workspace: name (ws-id)".
+export function parseModalWorkspace(stdout: string): string | undefined {
+  for (const line of stdout.split('\n')) {
+    if (!line.includes('Workspace:')) continue
+    const name = line.split('Workspace:')[1].split('(')[0].trim()
+    if (name) return name
+  }
+  return undefined
+}
+
+/**
+ * Validate Modal credentials by making a genuinely authenticated call.
+ *
+ * This deliberately does NOT use `GET api.modal.com/api/v1/apps`, which is what
+ * it used to do. That endpoint returns 200 for bogus tokens and even with no
+ * Authorization header at all, so the check passed for anything the user pasted
+ * — and since the wizard's Next button is gated on the result, a mistyped token
+ * unlocked setup and only failed much later, mid-transcription.
+ *
+ * `modal token info` is a real control-plane call under the venv Python, the
+ * same interpreter the pipeline runs on. It also returns the workspace name,
+ * which catches a token pasted from the wrong account.
+ */
+async function validateModal(tokenId: string, tokenSecret: string): Promise<ModalValidationResult> {
+  const pythonPath = getPythonPath()
+  const env = {
+    ...process.env,
+    ...getEnvVars(),
+    MODAL_TOKEN_ID: tokenId,
+    MODAL_TOKEN_SECRET: tokenSecret,
+    // Stop rich from colouring output we have to parse.
+    NO_COLOR: '1',
+    TERM: 'dumb',
+  }
+
+  return new Promise((resolve) => {
+    execFile(
+      pythonPath,
+      ['-m', 'modal', 'token', 'info'],
+      { env, timeout: 30_000 },
+      (err, stdout, stderr) => {
+        if (err) {
+          const detail = cleanModalCliError(stderr || stdout) || err.message
+          resolve({ ok: false, error: `Modal rejected these tokens: ${detail}` })
+          return
+        }
+        resolve({ ok: true, workspace: parseModalWorkspace(stdout) })
+      }
+    )
+  })
 }
 
 const HF_REQUIRED_MODELS = [

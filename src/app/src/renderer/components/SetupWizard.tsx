@@ -457,10 +457,18 @@ function ExternalLink({ href, children }: { href: string; children: React.ReactN
   )
 }
 
-function TestResult({ testing, result }: { testing: boolean; result: { ok: boolean; error?: string } | null }) {
+function TestResult({ testing, result }: { testing: boolean; result: { ok: boolean; error?: string; workspace?: string } | null }) {
   if (testing) return <p className="mt-3 text-sm text-gray-400">Testing connection...</p>
   if (!result) return null
-  if (result.ok) return <p className="mt-3 text-sm text-green-400">Connected successfully</p>
+  if (result.ok) {
+    // Naming the workspace is the cheapest way to catch a token pasted from
+    // the wrong account, which otherwise only shows up as a later failure.
+    return (
+      <p className="mt-3 text-sm text-green-400">
+        Connected successfully{result.workspace ? ` — workspace: ${result.workspace}` : ''}
+      </p>
+    )
+  }
   return <p className="mt-3 text-sm text-red-400">{result.error || 'Connection failed'}</p>
 }
 

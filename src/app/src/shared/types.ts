@@ -155,7 +155,7 @@ export interface ElectronAPI {
     ensure: () => Promise<{ ok: boolean; error?: string }>
   }
   validate: {
-    modal: (tokenId: string, tokenSecret: string) => Promise<{ ok: boolean; error?: string }>
+    modal: (tokenId: string, tokenSecret: string) => Promise<{ ok: boolean; error?: string; workspace?: string }>
     huggingFace: (token: string) => Promise<{ ok: boolean; error?: string }>
     claude: (apiKey: string) => Promise<{ ok: boolean; error?: string }>
     syncModalSecret: (hfToken: string, modalTokenId: string, modalTokenSecret: string) => Promise<{ ok: boolean; error?: string }>
