@@ -33,15 +33,6 @@ export function SetupWizard({ onComplete }: Props) {
   const [syncResult, setSyncResult] = useState<{ ok: boolean; error?: string } | null>(null)
   const [comparison, setComparison] = useState<WorkspaceComparison | null>(null)
   const [switchConfirmed, setSwitchConfirmed] = useState(false)
-  // The credentials that were in place before this run, so "Keep <workspace>"
-  // has something to restore.
-  const [savedTokens, setSavedTokens] = useState<{ id: string; secret: string }>({ id: '', secret: '' })
-
-  useEffect(() => {
-    window.api.env.get().then((env) => {
-      setSavedTokens({ id: env.MODAL_TOKEN_ID || '', secret: env.MODAL_TOKEN_SECRET || '' })
-    })
-  }, [])
 
   // A confirmed switch stops blocking; an unconfirmed one holds the Next button.
   const blockedByWorkspaceSwitch = comparison?.kind === 'changed' && !switchConfirmed
@@ -59,8 +50,11 @@ export function SetupWizard({ onComplete }: Props) {
   }
 
   function cancelWorkspaceSwitch() {
-    setModalTokenId(savedTokens.id)
-    setModalTokenSecret(savedTokens.secret)
+    // Clearing is the whole restore: the wizard does not write .env until
+    // finish(), so the previously saved credentials were never disturbed.
+    // (Reading them back is not an option — env:get masks its values.)
+    setModalTokenId('')
+    setModalTokenSecret('')
     resetTest()
   }
 
@@ -140,10 +134,8 @@ export function SetupWizard({ onComplete }: Props) {
       const result = await window.api.validate.syncModalSecret(hfToken, modalTokenId, modalTokenSecret)
       setSyncResult(result)
       setSyncingSecret(false)
-      // Both credentials are confirmed, so the workspace can be warmed now
-      // rather than during the user's first drag-and-drop. Runs in the
-      // background; the progress bar on the main screen reports it.
-      window.api.provision.start()
+      // Provisioning is triggered in main off the workspace and env writes
+      // above, so both credentials being confirmed is enough — no call here.
     }
 
     onComplete(config)

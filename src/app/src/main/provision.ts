@@ -149,14 +149,20 @@ export function skipProvision(): void {
 }
 
 /**
- * Resume a run that never finished. A workspace with an ID but no provisionedAt
- * means a previous attempt failed or was interrupted.
+ * Provision when there is a current workspace that has not been provisioned yet
+ * and the credentials to do it.
+ *
+ * Wired to workspace changes, credential changes and startup rather than to any
+ * one button. Hanging this off "Finish" and "Save" meant testing a connection
+ * and stopping there recorded the workspace but started nothing, which looked
+ * exactly like the feature not existing.
  */
-export function provisionOnStartupIfNeeded(): void {
+export function provisionIfNeeded(): void {
   const config = getConfig()
   if (!config) return
   if (!config.modal.workspaceId && !config.modal.workspaceName) return
   if (config.modal.provisionedAt) return
+  if (currentProcess) return
   if (!canProvision()) return
   startProvision()
 }

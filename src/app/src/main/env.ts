@@ -23,6 +23,12 @@ export function getEnvVars(): Record<string, string> {
   return vars
 }
 
+let envCallback: (() => void) | null = null
+
+export function onEnvChange(cb: () => void): void {
+  envCallback = cb
+}
+
 export function setEnvVars(vars: Record<string, string>): void {
   const existing = getEnvVars()
   const merged = { ...existing, ...vars }
@@ -30,6 +36,7 @@ export function setEnvVars(vars: Record<string, string>): void {
     .map(([k, v]) => `${k}=${v}`)
     .join('\n') + '\n'
   writeFileSync(envPath(), content, 'utf-8')
+  envCallback?.()
 }
 
 export function registerEnvIpc(): void {

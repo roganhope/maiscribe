@@ -99,6 +99,15 @@ export function getConfig(): AppConfig | null {
   return config as AppConfig
 }
 
+// Modal state is owned by this module, not by any renderer form. Anything that
+// makes a workspace current notifies here so provisioning can react, rather than
+// each caller having to remember to kick it off.
+let workspaceCallback: (() => void) | null = null
+
+export function onModalWorkspaceChange(cb: () => void): void {
+  workspaceCallback = cb
+}
+
 /** Record the workspace a successful validation identified. */
 export function setModalWorkspace(workspace: { id?: string; name: string }): void {
   const config = getConfig()
@@ -116,12 +125,25 @@ export function setModalWorkspace(workspace: { id?: string; name: string }): voi
       provisionedAt: changed ? null : config.modal.provisionedAt,
     },
   })
+  workspaceCallback?.()
 }
 
 export function markProvisioned(): void {
   const config = getConfig()
   if (!config) return
   setConfig({ ...config, modal: { ...config.modal, provisionedAt: new Date().toISOString() } })
+}
+
+/**
+ * Persist a config supplied by the renderer, preserving main-owned Modal state.
+ *
+ * Renderer forms hold a draft copied at mount, so a save issued after
+ * setModalWorkspace would write the stale modal block back over it and lose the
+ * workspace that was just recorded.
+ */
+export function saveIncomingConfig(config: AppConfig): void {
+  const current = getConfig()
+  setConfig(current ? { ...config, modal: current.modal } : config)
 }
 
 export function setConfig(config: AppConfig): void {
@@ -139,7 +161,7 @@ export function ensureDataDirs(): void {
 export function registerConfigIpc(): void {
   ipcMain.handle('config:get', () => getConfig())
   ipcMain.handle('config:set', (_event, config: AppConfig) => {
-    setConfig(config)
+    saveIncomingConfig(config)
     mkdirSync(join(config.basePath, 'inbox'), { recursive: true })
     mkdirSync(join(config.basePath, 'outbox'), { recursive: true })
   })

@@ -35,16 +35,18 @@ export function Settings({ onOpenWizard }: SettingsProps) {
   async function handleSave() {
     if (!draft) return
 
-    const modalId = newEnv.MODAL_TOKEN_ID || envKeys.MODAL_TOKEN_ID
-    const modalSecret = newEnv.MODAL_TOKEN_SECRET || envKeys.MODAL_TOKEN_SECRET
-    const modalChanged = Boolean(newEnv.MODAL_TOKEN_ID || newEnv.MODAL_TOKEN_SECRET)
+    // Only newly typed values are real. envKeys holds masked bullets (env.ts:33),
+    // so an untouched field is sent empty and main fills it from the stored .env.
+    const modalId = newEnv.MODAL_TOKEN_ID || ''
+    const modalSecret = newEnv.MODAL_TOKEN_SECRET || ''
+    const modalChanged = Boolean(modalId || modalSecret)
 
     // Changed Modal tokens have to be validated before they are written: the
     // validation call is the only thing that reports which workspace they
     // belong to, and switching workspaces throws away the cached image and
     // model weights. A token that fails now blocks the save rather than being
     // stored silently and failing mid-transcription later.
-    if (modalChanged && modalId && modalSecret) {
+    if (modalChanged) {
       setValidating(true)
       const result = await window.api.validate.modal(modalId, modalSecret)
       setValidating(false)
@@ -65,27 +67,29 @@ export function Settings({ onOpenWizard }: SettingsProps) {
       }
     }
 
-    await commitSave(modalChanged, modalId, modalSecret)
+    await commitSave()
   }
 
-  async function commitSave(modalChanged: boolean, modalId?: string, modalSecret?: string) {
+  async function commitSave() {
     if (!draft) return
     await saveConfig(draft)
     if (Object.values(newEnv).some(Boolean)) {
       await window.api.env.set(newEnv)
     }
-    const hfToken = newEnv.HF_TOKEN || envKeys.HF_TOKEN
-    if (hfToken && modalId && modalSecret) {
-      setSyncing(true)
-      const result = await window.api.validate.syncModalSecret(hfToken, modalId, modalSecret)
-      setSyncStatus(result)
-      setSyncing(false)
-      // A workspace switch leaves the new one cold, so warm it now rather than
-      // during the next transcription.
-      if (modalChanged) window.api.provision.start()
-    }
+    // Reads the real values back out of the .env just written, rather than the
+    // masked ones the renderer holds — syncing "••••••••" as the HF token would
+    // otherwise only fail later, inside the GPU container.
+    setSyncing(true)
+    const result = await window.api.validate.syncModalSecretFromEnv()
+    setSyncStatus(result.ok ? result : null)
+    setSyncing(false)
+    // Provisioning is triggered in main off the workspace and env changes above,
+    // so there is nothing to kick from here.
 
-    setEnvKeys({ ...envKeys, ...newEnv })
+    setEnvKeys({ ...envKeys, ...Object.fromEntries(
+      Object.entries(newEnv).filter(([, v]) => v).map(([k]) => [k, '••••••••'])
+    ) })
+    setNewEnv({})
     setComparison(null)
     setPendingWorkspace(null)
     setSaved(true)
@@ -95,11 +99,7 @@ export function Settings({ onOpenWizard }: SettingsProps) {
   /** "Switch to X" — record the new workspace and finish the save it interrupted. */
   async function confirmWorkspaceSwitch() {
     if (pendingWorkspace) await window.api.config.setModalWorkspace(pendingWorkspace)
-    await commitSave(
-      true,
-      newEnv.MODAL_TOKEN_ID || envKeys.MODAL_TOKEN_ID,
-      newEnv.MODAL_TOKEN_SECRET || envKeys.MODAL_TOKEN_SECRET
-    )
+    await commitSave()
   }
 
   /** "Keep X" — drop the pasted tokens; the saved ones stay untouched. */

@@ -37,7 +37,10 @@ export function ProvisionBar({ status }: { status: ProvisionStatus }) {
     <div className="px-6 py-2 bg-gray-800 text-gray-400">
       <div className="flex items-center gap-3 text-sm">
         <span className="flex-1 min-w-0 truncate">
-          Setting up your app — {status.message}
+          {/* Steps here run for minutes with no sub-progress — the image build
+              especially — so the cycling dots are what distinguish "working" from
+              "stalled". Same treatment as the queue's progress label. */}
+          Setting up your app — {status.message}<span className="animate-ellipsis" />
         </span>
         {status.total > 0 && (
           <span className="shrink-0 text-xs text-gray-500 tabular-nums">

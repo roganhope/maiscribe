@@ -100,8 +100,16 @@ async function validateModal(tokenId: string, tokenSecret: string): Promise<Moda
   // Defence in depth: the renderer trims too, but this handles any other caller.
   // A pasted token often carries a trailing space or newline, which Modal reports
   // as "Token ID is malformed" — an error that points nowhere near the cause.
-  tokenId = tokenId.trim()
-  tokenSecret = tokenSecret.trim()
+  tokenId = (tokenId || '').trim()
+  tokenSecret = (tokenSecret || '').trim()
+
+  // An empty half means "use what is already stored". `env:get` masks its values
+  // (env.ts:33), so a renderer that filled the gap from there would send literal
+  // bullet characters and Modal would reject a token the user never typed.
+  const stored = getEnvVars()
+  if (!tokenId) tokenId = (stored.MODAL_TOKEN_ID || '').trim()
+  if (!tokenSecret) tokenSecret = (stored.MODAL_TOKEN_SECRET || '').trim()
+
   if (!tokenId || !tokenSecret) {
     return { ok: false, error: 'Enter both a token ID and a token secret.' }
   }

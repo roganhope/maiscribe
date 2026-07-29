@@ -7,8 +7,8 @@ protocol.registerSchemesAsPrivileged([
 
 app.setName('maiscribe')
 
-import { registerConfigIpc, migrateFromRepoRoot, ensureDataDirs } from './config'
-import { registerEnvIpc } from './env'
+import { registerConfigIpc, migrateFromRepoRoot, ensureDataDirs, onModalWorkspaceChange } from './config'
+import { registerEnvIpc, onEnvChange } from './env'
 import { registerQueueIpc } from './queue'
 import { registerWatcherIpc, initWatcher } from './watcher'
 import { registerHistoryIpc, registerAudioProtocol } from './history'
@@ -18,7 +18,7 @@ import { registerSpeakersIpc } from './speakers'
 import {
   registerProvisionIpc,
   onStatusChange as onProvisionStatusChange,
-  provisionOnStartupIfNeeded,
+  provisionIfNeeded,
 } from './provision'
 
 let mainWindow: BrowserWindow | null = null
@@ -94,8 +94,13 @@ app.whenReady().then(() => {
   })
   // Needs the venv Python that setup_modal.py runs under, so it waits on the
   // env rather than racing it.
+  // Any of these can be the moment a workspace becomes provisionable: the
+  // wizard testing a connection, Settings saving a token, or a previous attempt
+  // that never finished.
+  onModalWorkspaceChange(() => provisionIfNeeded())
+  onEnvChange(() => provisionIfNeeded())
   ensurePythonEnv()
-    .then(() => provisionOnStartupIfNeeded())
+    .then(() => provisionIfNeeded())
     .catch(() => {})
 
   app.on('activate', () => {
