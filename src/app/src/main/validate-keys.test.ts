@@ -53,3 +53,28 @@ describe('cleanModalCliError', () => {
     expect(cleanModalCliError('connection refused')).toBe('connection refused')
   })
 })
+
+describe('cleanModalCliError on real Modal failures', () => {
+  // Verbatim stderr shapes seen from `modal token info`, so the messages the
+  // user is shown stay tied to what the CLI actually emits.
+  const cases: [string, string][] = [
+    ['mismatched pair', 'Token validation failed'],
+    ['whitespace in the id', 'Token ID is malformed'],
+  ]
+
+  for (const [label, message] of cases) {
+    it(`extracts the reason for a ${label}`, () => {
+      const boxed = [
+        '╭─ Error ───────────────────────────────────╮',
+        `│ ${message.padEnd(41)} │`,
+        '╰───────────────────────────────────────────╯',
+      ].join('\n')
+      expect(cleanModalCliError(boxed)).toBe(message)
+    })
+  }
+
+  it('handles a multi-line metadata error without swallowing the reason', () => {
+    const stderr = "Invalid metadata value: 'as-token\n'"
+    expect(cleanModalCliError(stderr)).toBe("Invalid metadata value: 'as-token")
+  })
+})

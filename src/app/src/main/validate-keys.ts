@@ -82,6 +82,15 @@ export function parseModalWorkspace(stdout: string): string | undefined {
  * which catches a token pasted from the wrong account.
  */
 async function validateModal(tokenId: string, tokenSecret: string): Promise<ModalValidationResult> {
+  // Defence in depth: the renderer trims too, but this handles any other caller.
+  // A pasted token often carries a trailing space or newline, which Modal reports
+  // as "Token ID is malformed" — an error that points nowhere near the cause.
+  tokenId = tokenId.trim()
+  tokenSecret = tokenSecret.trim()
+  if (!tokenId || !tokenSecret) {
+    return { ok: false, error: 'Enter both a token ID and a token secret.' }
+  }
+
   const pythonPath = getPythonPath()
   const env = {
     ...process.env,
@@ -139,6 +148,8 @@ interface HfValidationResult extends ValidationResult {
 }
 
 async function validateHuggingFace(token: string): Promise<HfValidationResult> {
+  token = token.trim()
+  if (!token) return { ok: false, error: 'Enter a Hugging Face token.', models: [] }
   try {
     const models: { model: string; ok: boolean; error?: string }[] = []
     let allOk = true
@@ -154,6 +165,8 @@ async function validateHuggingFace(token: string): Promise<HfValidationResult> {
 }
 
 async function validateClaude(apiKey: string): Promise<ValidationResult> {
+  apiKey = apiKey.trim()
+  if (!apiKey) return { ok: false, error: 'Enter an API key.' }
   try {
     const body = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
@@ -188,6 +201,12 @@ async function syncModalSecret(
   modalTokenId: string,
   modalTokenSecret: string
 ): Promise<ValidationResult> {
+  // A stray newline here would be written into the secret itself, so the GPU
+  // container would receive a token that fails only at model-download time.
+  hfToken = hfToken.trim()
+  modalTokenId = modalTokenId.trim()
+  modalTokenSecret = modalTokenSecret.trim()
+
   const pythonPath = getPythonPath()
   const envVars = getEnvVars()
   const env = {

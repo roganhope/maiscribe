@@ -30,7 +30,11 @@ export function SecretInput({
       <input
         type={revealed ? 'text' : 'password'}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        // Trim on the way in. Copying a token from a web page routinely picks up
+        // a trailing space or newline, and Modal then reports "Token ID is
+        // malformed" or "Invalid metadata value" — errors that point nowhere near
+        // the actual cause. No credential we accept here contains whitespace.
+        onChange={(e) => onChange(e.target.value.trim())}
         placeholder={placeholder}
         autoComplete={autoComplete}
         spellCheck={false}
