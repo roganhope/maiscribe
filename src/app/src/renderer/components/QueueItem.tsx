@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AudioHandlingToggles } from './AudioHandlingToggles'
 import type { QueueItem as QueueItemType } from '../../shared/types'
 
 const STATUS_STYLES = {
@@ -103,19 +104,15 @@ export function QueueItem({ item, onOpenHistory }: Props) {
       </div>
 
       {showSettings && item.status === 'staged' && (
-        <div className="px-4 pb-3 flex gap-4">
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400">Audio:</label>
-            <select
+        <div className="px-4 pb-3 flex flex-col gap-3">
+          <div className="max-w-sm">
+            <AudioHandlingToggles
+              compact
               value={item.options.audioHandling}
-              onChange={(e) => window.api.queue.updateOptions(item.id, { audioHandling: e.target.value as any })}
-              className="text-xs bg-gray-700 rounded px-2 py-1 text-gray-200"
-            >
-              <option value="store">Copy audio to maiscribe, keep original</option>
-              <option value="store-and-delete">Move audio to maiscribe, delete original</option>
-              <option value="delete">Don't store audio, leave original</option>
-            </select>
+              onChange={(audioHandling) => window.api.queue.updateOptions(item.id, { audioHandling })}
+            />
           </div>
+          <div className="flex gap-4">
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-400">Summarize:</label>
             <select
@@ -137,6 +134,7 @@ export function QueueItem({ item, onOpenHistory }: Props) {
               onChange={(e) => window.api.queue.updateOptions(item.id, { minSpeakers: parseInt(e.target.value) || 2 })}
               className="text-xs bg-gray-700 rounded px-2 py-1 text-gray-200 w-14"
             />
+          </div>
           </div>
         </div>
       )}

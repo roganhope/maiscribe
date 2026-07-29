@@ -29,6 +29,22 @@ def emit(event: str, **fields):
         print(f"[error] {prefix}{fields['message']}", flush=True)
 
 
+def handle_audio_file(handling: str, file_path: Path, out_folder: Path) -> None:
+    """Dispose of the source audio once its transcript is written.
+
+    Deleting is spelled out rather than left as an `else` branch. It used to be
+    the fallback, so an unrecognised value — a typo anywhere upstream — silently
+    destroyed the user's recording. Anything unknown now leaves the file alone,
+    which is also what 'leave' does.
+    """
+    if handling == 'store':
+        shutil.copy2(file_path, out_folder / file_path.name)
+    elif handling == 'store-and-delete':
+        shutil.move(str(file_path), str(out_folder / file_path.name))
+    elif handling == 'delete':
+        file_path.unlink()
+
+
 def make_outbox_folder(input_path: Path) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder = OUTBOX_DIR / f"{input_path.stem}_{timestamp}"
@@ -119,9 +135,13 @@ def main():
         help="Skip automatic summarization after transcription",
     )
     parser.add_argument(
-        "--audio-handling", choices=["store", "store-and-delete", "delete"],
-        default="delete",
-        help="What to do with the audio file after processing: store (copy to outbox), store-and-delete (move to outbox), delete (remove)",
+        "--audio-handling", choices=["store", "store-and-delete", "delete", "leave"],
+        default="leave",
+        help=(
+            "What to do with the audio file after processing: store (copy to outbox), "
+            "store-and-delete (move to outbox), delete (remove), leave (do nothing). "
+            "Defaults to leave — the only option that cannot lose the recording."
+        ),
     )
     parser.add_argument(
         "--outbox", type=Path, default=None,
@@ -211,12 +231,7 @@ def main():
                             json.dumps(result_to_save, indent=2, ensure_ascii=False),
                             encoding="utf-8",
                         )
-                        if args.audio_handling == 'store':
-                            shutil.copy2(file_path, out_folder / file_path.name)
-                        elif args.audio_handling == 'store-and-delete':
-                            shutil.move(str(file_path), str(out_folder / file_path.name))
-                        else:
-                            file_path.unlink()
+                        handle_audio_file(args.audio_handling, file_path, out_folder)
                         speakers = {s.get("speaker") for s in result["result"]["segments"]}
                         unknown = sorted(s for s in speakers if s and s.startswith("SPEAKER_"))
                         if not args.no_summary:

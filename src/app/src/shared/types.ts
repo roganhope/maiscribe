@@ -1,8 +1,13 @@
+// 'leave' transcribes without touching the source file at all. It is the
+// default: storing a copy duplicates gigabytes, and deleting destroys the only
+// copy, so doing neither is the one choice that cannot lose anything.
+export type AudioHandling = 'store' | 'store-and-delete' | 'delete' | 'leave'
+
 export interface AppConfig {
   version: 1
   basePath: string
   pipeline: {
-    audioHandling: 'store' | 'store-and-delete' | 'delete'
+    audioHandling: AudioHandling
     autoWatch: boolean
     autoSummarize: boolean
     minSpeakers: number
@@ -87,7 +92,7 @@ export interface RecordingDetail {
 }
 
 export interface QueueItemOptions {
-  audioHandling: 'store' | 'store-and-delete' | 'delete'
+  audioHandling: AudioHandling
   summarize: boolean
   minSpeakers: number
 }

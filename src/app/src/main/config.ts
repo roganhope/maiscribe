@@ -31,9 +31,10 @@ function defaultConfig(): AppConfig {
     version: 1,
     basePath: defaultBasePath(),
     pipeline: {
-      audioHandling: 'store',
+      audioHandling: 'leave',
       autoWatch: true,
       autoSummarize: true,
+      minSpeakers: 2,
     },
     obsidian: {
       enabled: false,

@@ -4,6 +4,7 @@ import { compareWorkspace, workspaceLineState } from '../../shared/workspace'
 import { useConfig } from '../hooks/useConfig'
 import { SecretInput } from './SecretInput'
 import { WorkspaceSwitchWarning } from './WorkspaceSwitchWarning'
+import { AudioHandlingToggles } from './AudioHandlingToggles'
 
 type SettingsTab = 'keys' | 'defaults' | 'location' | 'setup'
 
@@ -227,51 +228,13 @@ export function Settings({ onOpenWizard }: SettingsProps) {
               <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${draft.pipeline.autoWatch ? 'translate-x-5' : ''}`} />
             </button>
           </div>
-          <div className="border-t border-gray-700 pt-4 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">Store audio in maiscribe</span>
-              <span className="text-xs text-gray-500 cursor-help" title="Save a copy of the audio file alongside the transcription in maiscribe">?</span>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={draft.pipeline.audioHandling === 'store' || draft.pipeline.audioHandling === 'store-and-delete'}
-              onClick={() => {
-                const storing = draft.pipeline.audioHandling === 'store' || draft.pipeline.audioHandling === 'store-and-delete'
-                const deleting = draft.pipeline.audioHandling === 'delete' || draft.pipeline.audioHandling === 'store-and-delete'
-                const newHandling = storing
-                  ? (deleting ? 'delete' : 'delete')
-                  : (deleting ? 'store-and-delete' : 'store')
-                setDraft({ ...draft, pipeline: { ...draft.pipeline, audioHandling: newHandling } })
-              }}
-              className={`relative w-10 h-5 rounded-full transition-colors ${draft.pipeline.audioHandling === 'store' || draft.pipeline.audioHandling === 'store-and-delete' ? 'bg-accent-500' : 'bg-gray-600'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${draft.pipeline.audioHandling === 'store' || draft.pipeline.audioHandling === 'store-and-delete' ? 'translate-x-5' : ''}`} />
-            </button>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">Delete original audio after processing</span>
-              <span className="text-xs text-gray-500 cursor-help" title="Remove the original audio file from its source location after transcription completes">?</span>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={draft.pipeline.audioHandling === 'store-and-delete' || draft.pipeline.audioHandling === 'delete'}
-              onClick={() => {
-                const deleting = draft.pipeline.audioHandling === 'store-and-delete' || draft.pipeline.audioHandling === 'delete'
-                const storing = draft.pipeline.audioHandling === 'store' || draft.pipeline.audioHandling === 'store-and-delete'
-                const newHandling = deleting
-                  ? (storing ? 'store' : 'store')
-                  : (storing ? 'store-and-delete' : 'delete')
-                setDraft({ ...draft, pipeline: { ...draft.pipeline, audioHandling: newHandling } })
-              }}
-              className={`relative w-10 h-5 rounded-full transition-colors ${draft.pipeline.audioHandling === 'store-and-delete' || draft.pipeline.audioHandling === 'delete' ? 'bg-accent-500' : 'bg-gray-600'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${draft.pipeline.audioHandling === 'store-and-delete' || draft.pipeline.audioHandling === 'delete' ? 'translate-x-5' : ''}`} />
-            </button>
-          </div>
+          <div className="border-t border-gray-700 pt-4">
+            <AudioHandlingToggles
+              value={draft.pipeline.audioHandling}
+              onChange={(audioHandling) =>
+                setDraft({ ...draft, pipeline: { ...draft.pipeline, audioHandling } })
+              }
+            />
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

@@ -27,7 +27,7 @@ export function runPipeline(filePath: string, callbacks: PipelineCallbacks, item
     mkdirSync(outbox, { recursive: true })
     args.push('--outbox', outbox)
   }
-  const audioHandling = itemOptions?.audioHandling || config?.pipeline.audioHandling || 'delete'
+  const audioHandling = itemOptions?.audioHandling || config?.pipeline.audioHandling || 'leave'
   args.push('--audio-handling', audioHandling)
   const minSpeakers = itemOptions?.minSpeakers ?? config?.pipeline.minSpeakers ?? 2
   args.push('--min-speakers', String(minSpeakers))

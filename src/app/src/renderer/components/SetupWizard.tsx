@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import type { AppConfig, ModalWorkspace, WorkspaceComparison } from '../../shared/types'
+import type { AppConfig, AudioHandling, ModalWorkspace, WorkspaceComparison } from '../../shared/types'
 import { compareWorkspace } from '../../shared/workspace'
 import iconUrl from '../assets/icon.png'
+import modalLogoUrl from '../assets/modal.svg'
 import { SecretInput } from './SecretInput'
 import { ModalCredentialFields } from './ModalCredentialFields'
 import { WorkspaceSwitchWarning } from './WorkspaceSwitchWarning'
+import { AudioHandlingToggles } from './AudioHandlingToggles'
 
 type Step = 'welcome' | 'folder' | 'modal' | 'huggingface' | 'claude' | 'options' | 'done'
 const STEPS: Step[] = ['welcome', 'folder', 'modal', 'huggingface', 'claude', 'options', 'done']
@@ -24,7 +26,7 @@ export function SetupWizard({ onComplete }: Props) {
   const [modalTokenSecret, setModalTokenSecret] = useState('')
   const [hfToken, setHfToken] = useState('')
   const [claudeApiKey, setClaudeApiKey] = useState('')
-  const [audioHandling, setAudioHandling] = useState<'store' | 'store-and-delete' | 'delete'>('store')
+  const [audioHandling, setAudioHandling] = useState<AudioHandling>('leave')
   const [autoWatch, setAutoWatch] = useState(true)
   const [autoSummarize, setAutoSummarize] = useState(true)
   const [testing, setTesting] = useState(false)
@@ -210,7 +212,12 @@ export function SetupWizard({ onComplete }: Props) {
 
         {step === 'modal' && (
           <div>
-            <h2 className="text-lg font-semibold mb-2">Modal</h2>
+            <div className="flex items-center gap-2.5 mb-2">
+              {/* Decorative: the heading beside it already names the service, so
+                  alt is empty rather than repeating "Modal" to a screen reader. */}
+              <img src={modalLogoUrl} alt="" className="h-6 w-auto" />
+              <h2 className="text-lg font-semibold">Modal</h2>
+            </div>
             <div className="max-h-48 overflow-y-auto pr-2 mb-4 text-sm text-gray-400 space-y-3 scrollbar-thin scrollbar-thumb-gray-600">
               <p>
                 Modal runs the transcription pipeline in the cloud — you won't need a GPU on your machine.
@@ -407,16 +414,8 @@ export function SetupWizard({ onComplete }: Props) {
             <h2 className="text-lg font-semibold mb-4">Pipeline Options</h2>
             <div className="flex flex-col gap-4">
               <div>
-                <label className="text-sm text-gray-400">Audio file handling</label>
-                <select
-                  value={audioHandling}
-                  onChange={(e) => setAudioHandling(e.target.value as any)}
-                  className="w-full bg-gray-700 rounded px-3 py-2 text-sm mt-1 text-gray-200"
-                >
-                  <option value="store">Store in maiscribe (keep original)</option>
-                  <option value="store-and-delete">Store in maiscribe (delete original)</option>
-                  <option value="delete">Delete after processing</option>
-                </select>
+                <label className="text-sm text-gray-400 mb-2 block">Audio file handling</label>
+                <AudioHandlingToggles value={audioHandling} onChange={setAudioHandling} />
               </div>
               <label className="flex items-center gap-3">
                 <input

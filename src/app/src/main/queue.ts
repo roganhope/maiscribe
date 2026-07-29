@@ -128,7 +128,7 @@ export function addToQueue(filePaths: string[]): void {
       completedAt: null,
       estimatedDurationSec: null,
       options: {
-        audioHandling: config?.pipeline.audioHandling || 'delete',
+        audioHandling: config?.pipeline.audioHandling || 'leave',
         summarize: config?.pipeline.autoSummarize !== false,
         minSpeakers: config?.pipeline.minSpeakers ?? 2,
       },

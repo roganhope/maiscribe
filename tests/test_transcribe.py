@@ -114,3 +114,63 @@ def test_validate_files_all_invalid(tmp_path):
     valid, errors = validate_files([f1, f2])
     assert valid == []
     assert errors == ["a.mp3: file not found", "b.mp3: file not found"]
+
+
+# --- audio handling ---------------------------------------------------------
+# What happens to the user's file after transcription. Getting these wrong
+# destroys a recording, so each branch is pinned.
+
+from transcribe import handle_audio_file as _handle_audio
+
+
+def _setup(tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    out = tmp_path / "out"
+    out.mkdir()
+    audio = source / "meeting.m4a"
+    audio.write_bytes(b"audio")
+    return audio, out
+
+
+def test_store_copies_and_keeps_the_original(tmp_path):
+    audio, out = _setup(tmp_path)
+    _handle_audio('store', audio, out)
+    assert audio.exists()
+    assert (out / "meeting.m4a").exists()
+
+
+def test_store_and_delete_moves_the_original(tmp_path):
+    audio, out = _setup(tmp_path)
+    _handle_audio('store-and-delete', audio, out)
+    assert not audio.exists()
+    assert (out / "meeting.m4a").exists()
+
+
+def test_delete_removes_the_original_and_keeps_no_copy(tmp_path):
+    audio, out = _setup(tmp_path)
+    _handle_audio('delete', audio, out)
+    assert not audio.exists()
+    assert not (out / "meeting.m4a").exists()
+
+
+def test_leave_touches_nothing(tmp_path):
+    audio, out = _setup(tmp_path)
+    _handle_audio('leave', audio, out)
+    assert audio.exists(), "the source file must survive"
+    assert not (out / "meeting.m4a").exists(), "no copy should be made"
+
+
+def test_an_unknown_value_does_not_delete(tmp_path):
+    """The old `else: unlink()` meant any typo upstream destroyed the file."""
+    audio, out = _setup(tmp_path)
+    _handle_audio('typo', audio, out)
+    assert audio.exists()
+
+
+def test_leave_is_the_argparse_default():
+    """A bare CLI run must not delete the file it was pointed at."""
+    src = (Path(__file__).parent.parent / "src" / "scripts" / "transcribe.py").read_text()
+    block = src.split('"--audio-handling"')[1].split("help=")[0]
+    assert 'default="leave"' in block
+    assert '"leave"' in block
