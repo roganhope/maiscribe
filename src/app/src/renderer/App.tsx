@@ -1,17 +1,20 @@
 import { useState, useRef } from 'react'
 import { useConfig } from './hooks/useConfig'
 import { usePythonEnv } from './hooks/usePythonEnv'
+import { useProvision } from './hooks/useProvision'
 import { Dashboard } from './components/Dashboard'
 import { SetupWizard } from './components/SetupWizard'
 import { Settings } from './components/Settings'
 import { HistoryView, HistoryViewHandle } from './components/HistoryView'
 import { SpeakersTab } from './components/SpeakersTab'
+import { ProvisionBar } from './components/ProvisionBar'
 
 type Tab = 'process' | 'history' | 'speakers' | 'settings'
 
 export default function App() {
   const { config, saveConfig, loading } = useConfig()
   const pythonEnv = usePythonEnv()
+  const provision = useProvision()
   const [tab, setTab] = useState<Tab>('process')
   const [wizardDone, setWizardDone] = useState(false)
   const [showWizard, setShowWizard] = useState(false)
@@ -81,6 +84,8 @@ export default function App() {
           {pythonEnv.state === 'error' ? `Setup error: ${pythonEnv.message}` : pythonEnv.message}
         </div>
       )}
+
+      <ProvisionBar status={provision} />
 
       <div className="flex-1 min-h-0">
         {tab === 'process' && <Dashboard onOpenHistory={handleOpenHistory} onNavigateToKeys={() => setTab('settings')} />}

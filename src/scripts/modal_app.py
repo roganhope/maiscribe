@@ -270,12 +270,23 @@ def transcribe_audio(audio_bytes: bytes, filename: str, min_speakers: int = 2) -
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=3600,
 )
-def prefetch_models() -> dict:
+def prefetch_models():
     """Download every model into the volume so the first transcription is fast.
 
     Runs on a GPU rather than CPU on purpose: the loaders instantiate on cuda, so
     a CPU run would download the weights but prove nothing about whether they
     actually load. This is the step that makes a cold workspace usable.
+
+    A generator rather than a plain function, so callers get progress while the
+    download runs instead of one dict after all three finish. Call it with
+    `.remote_gen()` — `.remote()` raises on a generator function. Records are:
+
+        {"kind": "started", "name": ...}   before each model
+        {"kind": "result",  "name": ..., "ok": ..., "error": ..., "seconds": ...}
+        {"kind": "summary", "ok": ..., "steps": [...], "volume": {...}}
+
+    The summary is always the last record and carries the same payload the old
+    return value did, so callers can accumulate it and behave as before.
     """
     import os
     import time
@@ -292,12 +303,14 @@ def prefetch_models() -> dict:
             ok, error = True, None
         except Exception as e:
             ok, error = False, str(e)
-        steps.append({
+        record = {
             "name": name,
             "ok": ok,
             "error": error,
             "seconds": round(time.monotonic() - started, 1),
-        })
+        }
+        steps.append(record)
+        return record
 
     def dir_size_mb(path):
         total = 0
@@ -311,9 +324,13 @@ def prefetch_models() -> dict:
 
     before_mb = dir_size_mb(MODELS_DIR)
 
-    fetch("whisper", _load_whisper)
-    fetch("diarization", lambda: _load_diarization(token))
-    fetch("embedding", lambda: _load_embedding(token))
+    for name, loader in (
+        ("whisper", _load_whisper),
+        ("diarization", lambda: _load_diarization(token)),
+        ("embedding", lambda: _load_embedding(token)),
+    ):
+        yield {"kind": "started", "name": name}
+        yield {"kind": "result", **fetch(name, loader)}
 
     # Without this the downloads die with the container and the next run repeats them.
     try:
@@ -322,7 +339,8 @@ def prefetch_models() -> dict:
     except Exception:
         committed = False
 
-    return {
+    yield {
+        "kind": "summary",
         "ok": all(s["ok"] for s in steps),
         "steps": steps,
         "volume": {

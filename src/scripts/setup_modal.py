@@ -24,12 +24,14 @@ Exit codes: 0 = ready, 1 = failed, 2 = a credential is missing.
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _common import (  # noqa: E402
+    EXIT_OK,
     FAIL,
     MODAL_KEYS,
     PASS,
@@ -50,6 +52,37 @@ from _common import (  # noqa: E402
     run_modal_cli,
     run_steps,
 )
+
+
+# When True (--json), progress is emitted as JSON lines for the Electron app,
+# matching the event shape transcribe.py already uses so the app has one parser.
+JSON_OUTPUT = False
+
+# Labels for the three local steps; the model steps are labelled from the
+# records prefetch_models yields, so the two lists stay in step order.
+STEP_LABELS = {
+    "credentials": "Checking credentials",
+    "secret": "Syncing Hugging Face secret",
+    "image and models": "Building GPU image",
+}
+MODEL_LABELS = {
+    "whisper": "Downloading Whisper model",
+    "diarization": "Downloading diarization model",
+    "embedding": "Downloading embedding model",
+}
+
+_progress = {"index": 0, "total": 0}
+
+
+def emit(event, **fields):
+    if JSON_OUTPUT:
+        print(json.dumps({"event": event, **fields}, ensure_ascii=False), flush=True)
+
+
+def emit_step(message):
+    """Advance the counter and announce the step that is about to start."""
+    _progress["index"] += 1
+    emit("step", message=message, index=_progress["index"], total=_progress["total"])
 
 
 def step_credentials(ctx):
@@ -92,17 +125,30 @@ def step_prefetch(ctx):
     except Exception as e:
         return Outcome(FAIL, f"Could not import the Modal app: {e}")
 
-    print("\n  Building the image and downloading models into the volume.")
-    print("  On a fresh workspace this takes several minutes and pulls ~3GB.\n")
+    if not JSON_OUTPUT:
+        print("\n  Building the image and downloading models into the volume.")
+        print("  On a fresh workspace this takes several minutes and pulls ~3GB.\n")
 
+    result = None
     try:
         # enable_output surfaces build logs; a cold build is otherwise silent.
+        # It stays even though progress now arrives as data: the image build
+        # happens before the function body runs, so no yield can report it.
         with modal.enable_output():
             with app.run():
-                result = prefetch_models.remote()
+                # .remote() raises on a generator function — see prefetch_models.
+                for record in prefetch_models.remote_gen():
+                    if record.get("kind") == "started":
+                        name = record["name"]
+                        emit_step(MODEL_LABELS.get(name, f"Downloading {name}"))
+                    elif record.get("kind") == "summary":
+                        result = record
     except Exception as e:
         from transcribe import _format_modal_error
         return Outcome(FAIL, _format_modal_error(e))
+
+    if result is None:
+        return Outcome(FAIL, "The prefetch function ended without reporting a summary")
 
     notes = [
         f"{'ok  ' if s['ok'] else 'FAIL'} {s['name']} ({s['seconds']}s)"
@@ -121,18 +167,34 @@ def step_prefetch(ctx):
 
 
 def main():
+    global JSON_OUTPUT
+
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--skip-prefetch", action="store_true",
         help="Only create the secret. No container, no build, no download.",
     )
+    parser.add_argument(
+        "--json", action="store_true",
+        help="Emit progress as JSON lines for the desktop app.",
+    )
     parser.add_argument("--python", metavar="PATH", default=None)
     args = parser.parse_args()
 
-    maybe_reexec(__file__, args.python, ["--skip-prefetch"] if args.skip_prefetch else [])
+    # The flags have to survive the re-exec, or the second process drops back to
+    # human output and the app sees nothing it can parse.
+    passthrough = []
+    if args.skip_prefetch:
+        passthrough.append("--skip-prefetch")
+    if args.json:
+        passthrough.append("--json")
+    maybe_reexec(__file__, args.python, passthrough)
+
+    JSON_OUTPUT = args.json
 
     creds = load_credentials()
-    print_header("Modal workspace setup", creds, show_interpreter=True)
+    if not JSON_OUTPUT:
+        print_header("Modal workspace setup", creds, show_interpreter=True)
     ctx = {
         "creds": creds,
         "env": modal_env(creds),
@@ -143,8 +205,31 @@ def main():
         ("secret", step_secret),
         ("image and models", step_prefetch),
     ]
-    code = run_steps(steps, ctx, print_outcome)
-    print_footer(code, "Workspace is ready. The first transcription will not build anything.")
+    # Three local steps, plus one per model unless the download is skipped.
+    _progress["total"] = len(steps) if args.skip_prefetch else len(steps) + len(MODEL_LABELS)
+
+    failure = {"message": None}
+
+    def report(name, outcome):
+        if outcome.status == FAIL:
+            failure["message"] = f"{name}: {outcome.message}"
+        if not JSON_OUTPUT:
+            print_outcome(name, outcome)
+
+    def on_start(_index, name, _total):
+        # The prefetch step announces itself as "Building GPU image"; the model
+        # steps that follow are emitted from inside step_prefetch.
+        emit_step(STEP_LABELS.get(name, name))
+
+    code = run_steps(steps, ctx, report, on_start=on_start if JSON_OUTPUT else None)
+
+    if JSON_OUTPUT:
+        if code == EXIT_OK:
+            emit("done", message="Workspace is ready")
+        else:
+            emit("error", message=failure["message"] or "Setup failed", code=code)
+    else:
+        print_footer(code, "Workspace is ready. The first transcription will not build anything.")
     return code
 
 

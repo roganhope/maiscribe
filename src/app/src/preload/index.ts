@@ -22,6 +22,7 @@ const api: ElectronAPI = {
     get: () => ipcRenderer.invoke('config:get'),
     set: (config) => ipcRenderer.invoke('config:set', config),
     defaultBasePath: () => ipcRenderer.invoke('config:defaultBasePath'),
+    setModalWorkspace: (workspace) => ipcRenderer.invoke('config:setModalWorkspace', workspace),
   },
   env: {
     get: () => ipcRenderer.invoke('env:get'),
@@ -62,6 +63,17 @@ const api: ElectronAPI = {
     claude: (apiKey) => ipcRenderer.invoke('validate:claude', apiKey),
     syncModalSecret: (hfToken, modalTokenId, modalTokenSecret) => ipcRenderer.invoke('validate:syncModalSecret', hfToken, modalTokenId, modalTokenSecret),
     syncModalSecretFromEnv: () => ipcRenderer.invoke('validate:syncModalSecretFromEnv'),
+  },
+  provision: {
+    onStatus: (callback) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: unknown) => callback(status as any)
+      ipcRenderer.on('provision:status', handler)
+      return () => { ipcRenderer.removeListener('provision:status', handler) }
+    },
+    getStatus: () => ipcRenderer.invoke('provision:status'),
+    start: () => ipcRenderer.send('provision:start'),
+    retry: () => ipcRenderer.send('provision:retry'),
+    skip: () => ipcRenderer.send('provision:skip'),
   },
   speakers: {
     list: () => ipcRenderer.invoke('speakers:list'),

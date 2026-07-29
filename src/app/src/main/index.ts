@@ -15,6 +15,11 @@ import { registerHistoryIpc, registerAudioProtocol } from './history'
 import { registerPythonEnvIpc, ensurePythonEnv, onStatusChange } from './python-env'
 import { registerValidateKeysIpc } from './validate-keys'
 import { registerSpeakersIpc } from './speakers'
+import {
+  registerProvisionIpc,
+  onStatusChange as onProvisionStatusChange,
+  provisionOnStartupIfNeeded,
+} from './provision'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -55,6 +60,7 @@ app.whenReady().then(() => {
   registerPythonEnvIpc()
   registerValidateKeysIpc()
   registerSpeakersIpc()
+  registerProvisionIpc()
 
   ipcMain.on('shell:openPath', (_event, path: string) => {
     shell.showItemInFolder(path)
@@ -83,7 +89,14 @@ app.whenReady().then(() => {
   onStatusChange((status) => {
     mainWindow?.webContents.send('python-env:status', status)
   })
-  ensurePythonEnv().catch(() => {})
+  onProvisionStatusChange((status) => {
+    mainWindow?.webContents.send('provision:status', status)
+  })
+  // Needs the venv Python that setup_modal.py runs under, so it waits on the
+  // env rather than racing it.
+  ensurePythonEnv()
+    .then(() => provisionOnStartupIfNeeded())
+    .catch(() => {})
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

@@ -41,6 +41,7 @@ python src/scripts/check_modal.py     # Modal reachable, tokens valid, an app ca
 python src/scripts/check_hf.py        # every model in models.json is reachable
 python src/scripts/check_claude.py    # Claude API reachable (optional — summaries only)
 python src/scripts/setup_modal.py     # create secret, build image, prefetch models  [expensive]
+python src/scripts/setup_modal.py --json   # same, emitting progress events for the app
 python src/scripts/health_modal.py    # read-only: is this workspace still healthy?
 
 python src/scripts/init_modal.py          # orchestrator: run every check, change nothing
@@ -58,6 +59,8 @@ The Modal scripts re-exec under the app's provisioned venv Python (the interpret
 **`check_modal.py`** ends by actually creating an ephemeral app and running a trivial CPU function. That last step is the only one that proves Modal can schedule work for this account — `GET api.modal.com/api/v1/apps` returns 200 even with *no* Authorization header, so reachability alone proves nothing about the tokens. `--no-run` stops before it.
 
 **`setup_modal.py`** is the run-once script: it creates the `huggingface` secret, builds the CUDA image, and downloads whisper + pyannote weights into the `whisper-models` volume so the first real transcription doesn't. It does **not** `modal deploy` — the app stays ephemeral, so a pipeline change ships inside the desktop app instead of needing a redeploy in every user's workspace.
+
+The desktop app runs this itself via `provision.ts` (`--json`), triggered when the wizard finishes, when Settings saves a workspace switch, or at startup if `config.modal.provisionedAt` is null. `prefetch_models` is a **generator** — call it with `.remote_gen()`, not `.remote()` — so progress arrives per model instead of in one dict at the end. The image build is still opaque: it happens before the function body runs, so nothing can report inside it.
 
 **`health_modal.py`** is strictly read-only and starts no container, so it is safe to run at any time. It checks that weights are actually *cached*, not just that the volume exists — a fully configured workspace with an empty volume still makes the user wait five minutes.
 
@@ -79,7 +82,7 @@ Three files, each self-contained:
 - **`transcribe.py`** — CLI entry point. Handles file validation, calls the Modal function, writes results to outbox folders (`{stem}_{timestamp}/`), and triggers summarization. Also has `--enroll` and `--list-speakers` subcommands.
 - **`summarize.py`** — Calls Claude API with a structured prompt, writes `summary.json` and `summary.md` next to the transcript.
 
-The pipeline communicates progress via stdout markers: `[step]`, `[done]`, `[error]`. The Electron app parses these to drive the queue UI.
+The pipeline communicates progress on stdout. Under `--json` — which is how the Electron app always invokes it — each line is a JSON object: `{"event": "step"|"done"|"error", ...}`. Without the flag the same events print as human-readable `[step]` / `[done]` / `[error]` markers for CLI use. `setup_modal.py` speaks the same contract, so `pipeline.ts` and `provision.ts` share one parser.
 
 ### Electron App (`src/app/`)
 

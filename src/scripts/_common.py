@@ -321,9 +321,18 @@ def export_modal_credentials(creds):
 # Step runner
 # ---------------------------------------------------------------------------
 
-def run_steps(steps, ctx, report):
-    """Run steps in order, halting on the first failure. Returns an exit code."""
-    for name, fn in steps:
+def run_steps(steps, ctx, report, on_start=None):
+    """Run steps in order, halting on the first failure. Returns an exit code.
+
+    `report` fires after a step returns, which is all a CLI needs. A progress bar
+    needs the label *before* the work starts — otherwise "building the image"
+    only appears once the build has finished — so `on_start(index, name, total)`
+    fires first when supplied. Callers that only print outcomes omit it.
+    """
+    total = len(steps)
+    for index, (name, fn) in enumerate(steps):
+        if on_start:
+            on_start(index, name, total)
         outcome = fn(ctx)
         report(name, outcome)
         if outcome.status == FAIL:

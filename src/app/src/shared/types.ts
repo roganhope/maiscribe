@@ -12,6 +12,36 @@ export interface AppConfig {
     vaultPath: string | null
     outputFolder: string | null
   }
+  // Which Modal workspace the app last provisioned. The GPU image and the ~3GB
+  // of model weights are cached per workspace, so switching workspaces silently
+  // invalidates both — this is what makes that detectable.
+  modal: ModalWorkspaceConfig
+}
+
+export interface ModalWorkspaceConfig {
+  // Workspace names are user-editable, so the ID is what identity compares on.
+  // It stays optional: `modal token info` does not always print one.
+  workspaceId: string | null
+  workspaceName: string | null
+  provisionedAt: string | null
+}
+
+export interface ModalWorkspace {
+  name: string
+  id?: string
+}
+
+export type WorkspaceComparison =
+  | { kind: 'first-setup' }
+  | { kind: 'same' }
+  | { kind: 'renamed'; from: string; to: string }
+  | { kind: 'changed'; from: string; to: string; confident: boolean }
+
+export interface ProvisionStatus {
+  state: 'idle' | 'running' | 'ready' | 'error'
+  message: string
+  index: number
+  total: number
 }
 
 export interface RecordingListItem {
@@ -124,6 +154,7 @@ export interface ElectronAPI {
     get: () => Promise<AppConfig | null>
     set: (config: AppConfig) => Promise<void>
     defaultBasePath: () => Promise<string>
+    setModalWorkspace: (workspace: ModalWorkspace) => Promise<void>
   }
   env: {
     get: () => Promise<Record<string, string>>
@@ -155,11 +186,20 @@ export interface ElectronAPI {
     ensure: () => Promise<{ ok: boolean; error?: string }>
   }
   validate: {
-    modal: (tokenId: string, tokenSecret: string) => Promise<{ ok: boolean; error?: string; workspace?: string }>
+    modal: (tokenId: string, tokenSecret: string) => Promise<{ ok: boolean; error?: string; workspace?: ModalWorkspace }>
     huggingFace: (token: string) => Promise<{ ok: boolean; error?: string }>
     claude: (apiKey: string) => Promise<{ ok: boolean; error?: string }>
     syncModalSecret: (hfToken: string, modalTokenId: string, modalTokenSecret: string) => Promise<{ ok: boolean; error?: string }>
     syncModalSecretFromEnv: () => Promise<{ ok: boolean; error?: string }>
+  }
+  provision: {
+    onStatus: (callback: (status: ProvisionStatus) => void) => () => void
+    getStatus: () => Promise<ProvisionStatus>
+    start: () => void
+    retry: () => void
+    // Abandons the gate and lets the queue run against an unprovisioned
+    // workspace — the cold cost then lands during transcription, as it does today.
+    skip: () => void
   }
   speakers: {
     list: () => Promise<Speaker[]>

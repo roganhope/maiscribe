@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { DropZone } from './DropZone'
 import { QueueItem } from './QueueItem'
 import { useQueue } from '../hooks/useQueue'
+import { useProvision } from '../hooks/useProvision'
 
 interface DashboardProps {
   onOpenHistory: (outputPath: string) => void
@@ -10,6 +11,7 @@ interface DashboardProps {
 
 export function Dashboard({ onOpenHistory, onNavigateToKeys }: DashboardProps) {
   const queue = useQueue()
+  const provision = useProvision()
   const [keysReady, setKeysReady] = useState<boolean | null>(null)
 
   // Done items are dismissed when the user navigates away from this tab
@@ -27,13 +29,16 @@ export function Dashboard({ onOpenHistory, onNavigateToKeys }: DashboardProps) {
 
   const isProcessing = queue.some(i => i.status === 'processing')
   const hasStaged = queue.some(i => i.status === 'staged')
+  // Workspace setup holds the queue back so a transcription does not race the
+  // prefetch for the same cold volume — see isBlocking in provision.ts.
+  const waitingForSetup = provision.state === 'running'
 
   function handleStart() {
     window.api.queue.start()
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && hasStaged && !isProcessing) {
+    if (e.key === 'Enter' && hasStaged && !isProcessing && !waitingForSetup) {
       handleStart()
     }
   }
@@ -72,9 +77,10 @@ export function Dashboard({ onOpenHistory, onNavigateToKeys }: DashboardProps) {
         <div className="flex justify-center pb-2">
           <button
             onClick={handleStart}
-            className="px-6 py-2 rounded-lg bg-accent-500 hover:bg-accent-600 text-white font-medium text-sm"
+            disabled={waitingForSetup}
+            className="px-6 py-2 rounded-lg bg-accent-500 hover:bg-accent-600 disabled:opacity-40 disabled:hover:bg-accent-500 text-white font-medium text-sm"
           >
-            Start Transcriptions
+            {waitingForSetup ? 'Waiting for setup...' : 'Start Transcriptions'}
           </button>
         </div>
       )}

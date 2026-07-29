@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
-import type { AppConfig } from '../../shared/types'
+import type { AppConfig, ModalWorkspace, WorkspaceComparison } from '../../shared/types'
+import { compareWorkspace } from '../../shared/workspace'
 import iconUrl from '../assets/icon.png'
 import { SecretInput } from './SecretInput'
+import { ModalCredentialFields } from './ModalCredentialFields'
+import { WorkspaceSwitchWarning } from './WorkspaceSwitchWarning'
 
 type Step = 'welcome' | 'folder' | 'modal' | 'huggingface' | 'claude' | 'options' | 'done'
 const STEPS: Step[] = ['welcome', 'folder', 'modal', 'huggingface', 'claude', 'options', 'done']
@@ -25,9 +28,23 @@ export function SetupWizard({ onComplete }: Props) {
   const [autoWatch, setAutoWatch] = useState(true)
   const [autoSummarize, setAutoSummarize] = useState(true)
   const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; models?: { model: string; ok: boolean; error?: string }[] } | null>(null)
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; workspace?: ModalWorkspace; models?: { model: string; ok: boolean; error?: string }[] } | null>(null)
   const [syncingSecret, setSyncingSecret] = useState(false)
   const [syncResult, setSyncResult] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [comparison, setComparison] = useState<WorkspaceComparison | null>(null)
+  const [switchConfirmed, setSwitchConfirmed] = useState(false)
+  // The credentials that were in place before this run, so "Keep <workspace>"
+  // has something to restore.
+  const [savedTokens, setSavedTokens] = useState<{ id: string; secret: string }>({ id: '', secret: '' })
+
+  useEffect(() => {
+    window.api.env.get().then((env) => {
+      setSavedTokens({ id: env.MODAL_TOKEN_ID || '', secret: env.MODAL_TOKEN_SECRET || '' })
+    })
+  }, [])
+
+  // A confirmed switch stops blocking; an unconfirmed one holds the Next button.
+  const blockedByWorkspaceSwitch = comparison?.kind === 'changed' && !switchConfirmed
 
   async function selectFolder() {
     const path = await window.api.dialog.selectDirectory()
@@ -37,14 +54,40 @@ export function SetupWizard({ onComplete }: Props) {
   function resetTest() {
     setTestResult(null)
     setTesting(false)
+    setComparison(null)
+    setSwitchConfirmed(false)
   }
 
-  async function testModal() {
+  function cancelWorkspaceSwitch() {
+    setModalTokenId(savedTokens.id)
+    setModalTokenSecret(savedTokens.secret)
+    resetTest()
+  }
+
+  async function testModal(idOverride?: string, secretOverride?: string) {
+    // A paste sets state and tests in the same tick, so the values have to be
+    // passed through rather than read back from state that has not updated yet.
+    const id = idOverride ?? modalTokenId
+    const secret = secretOverride ?? modalTokenSecret
     setTesting(true)
     setTestResult(null)
-    const result = await window.api.validate.modal(modalTokenId, modalTokenSecret)
+    setComparison(null)
+    setSwitchConfirmed(false)
+    const result = await window.api.validate.modal(id, secret)
     setTestResult(result)
     setTesting(false)
+
+    if (!result.ok || !result.workspace) return
+
+    const config = await window.api.config.get()
+    const verdict = compareWorkspace(config?.modal, result.workspace)
+    // Only a switch needs a decision. A rename or a first setup is recorded
+    // straight away; holding the user up for either would be noise.
+    if (verdict.kind === 'changed') {
+      setComparison(verdict)
+      return
+    }
+    await window.api.config.setModalWorkspace(result.workspace)
   }
 
   async function testHuggingFace() {
@@ -64,6 +107,9 @@ export function SetupWizard({ onComplete }: Props) {
   }
 
   async function finish() {
+    // Preserve any workspace already recorded — testModal writes it, and a
+    // fresh object here would throw that away along with provisionedAt.
+    const existing = await window.api.config.get()
     const config: AppConfig = {
       version: 1,
       basePath,
@@ -78,6 +124,7 @@ export function SetupWizard({ onComplete }: Props) {
         vaultPath: null,
         outputFolder: null,
       },
+      modal: existing?.modal ?? { workspaceId: null, workspaceName: null, provisionedAt: null },
     }
 
     await window.api.config.set(config)
@@ -93,6 +140,10 @@ export function SetupWizard({ onComplete }: Props) {
       const result = await window.api.validate.syncModalSecret(hfToken, modalTokenId, modalTokenSecret)
       setSyncResult(result)
       setSyncingSecret(false)
+      // Both credentials are confirmed, so the workspace can be warmed now
+      // rather than during the user's first drag-and-drop. Runs in the
+      // background; the progress bar on the main screen reports it.
+      window.api.provision.start()
     }
 
     onComplete(config)
@@ -185,26 +236,28 @@ export function SetupWizard({ onComplete }: Props) {
                 Modal has a free tier as of June 2025, so whether you get charged depends on your usage.
               </p>
             </div>
-            <div className="flex flex-col gap-3">
-              <div>
-                <label className="text-sm text-gray-400">Token ID</label>
-                <SecretInput
-                  value={modalTokenId}
-                  onChange={(value) => { setModalTokenId(value); resetTest() }}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-400">Token Secret</label>
-                <SecretInput
-                  value={modalTokenSecret}
-                  onChange={(value) => { setModalTokenSecret(value); resetTest() }}
-                  className="mt-1"
-                />
-              </div>
-            </div>
+            <ModalCredentialFields
+              tokenId={modalTokenId}
+              tokenSecret={modalTokenSecret}
+              onChange={(id, secret) => {
+                setModalTokenId(id)
+                setModalTokenSecret(secret)
+                resetTest()
+              }}
+              // A paste carries both halves at once, so the step can resolve
+              // itself rather than making the user click Test as a formality.
+              onPasted={(id, secret) => testModal(id, secret)}
+            />
 
             <TestResult testing={testing} result={testResult} />
+
+            {comparison && (
+              <WorkspaceSwitchWarning
+                comparison={comparison}
+                onConfirm={() => setSwitchConfirmed(true)}
+                onCancel={cancelWorkspaceSwitch}
+              />
+            )}
 
             <div className="flex gap-2 mt-6">
               <button
@@ -214,7 +267,7 @@ export function SetupWizard({ onComplete }: Props) {
                 Back
               </button>
               <button
-                onClick={testModal}
+                onClick={() => testModal()}
                 disabled={!modalTokenId || !modalTokenSecret || testing}
                 className="flex-1 py-2 bg-gray-600 hover:bg-gray-500 disabled:opacity-40 rounded font-medium"
               >
@@ -222,7 +275,7 @@ export function SetupWizard({ onComplete }: Props) {
               </button>
               <button
                 onClick={() => goNext('huggingface')}
-                disabled={!testResult?.ok}
+                disabled={!testResult?.ok || blockedByWorkspaceSwitch}
                 className="flex-1 py-2 bg-accent-500 hover:bg-accent-600 disabled:opacity-40 rounded font-medium"
               >
                 Next
@@ -454,7 +507,7 @@ function ExternalLink({ href, children }: { href: string; children: React.ReactN
   )
 }
 
-function TestResult({ testing, result }: { testing: boolean; result: { ok: boolean; error?: string; workspace?: string } | null }) {
+function TestResult({ testing, result }: { testing: boolean; result: { ok: boolean; error?: string; workspace?: ModalWorkspace } | null }) {
   if (testing) return <p className="mt-3 text-sm text-gray-400">Testing connection...</p>
   if (!result) return null
   if (result.ok) {
@@ -462,7 +515,7 @@ function TestResult({ testing, result }: { testing: boolean; result: { ok: boole
     // the wrong account, which otherwise only shows up as a later failure.
     return (
       <p className="mt-3 text-sm text-green-400">
-        Connected successfully{result.workspace ? ` — workspace: ${result.workspace}` : ''}
+        Connected successfully{result.workspace ? ` — workspace: ${result.workspace.name}` : ''}
       </p>
     )
   }

@@ -3,6 +3,7 @@ import { execFile } from 'child_process'
 import { ipcMain } from 'electron'
 import { getPythonPath } from './python-env'
 import { getEnvVars } from './env'
+import type { ModalWorkspace } from '../shared/types'
 
 interface ValidationResult {
   ok: boolean
@@ -10,7 +11,7 @@ interface ValidationResult {
 }
 
 interface ModalValidationResult extends ValidationResult {
-  workspace?: string
+  workspace?: ModalWorkspace
 }
 
 function httpsJson(options: {
@@ -58,12 +59,26 @@ export function cleanModalCliError(text: string): string {
   return ''
 }
 
-// `modal token info` prints "Workspace: name (ws-id)".
-export function parseModalWorkspace(stdout: string): string | undefined {
+/**
+ * `modal token info` prints "Workspace: name (ws-id)".
+ *
+ * Both halves matter. The name is what a user recognises, but it is editable in
+ * Modal's settings, so identity has to compare on the parenthesised ID instead —
+ * see compareWorkspace in shared/workspace.ts.
+ *
+ * The ID stays optional: not every Modal build prints one, and a missing ID has
+ * to degrade to a name comparison rather than break the check.
+ */
+export function parseModalWorkspace(stdout: string): ModalWorkspace | undefined {
   for (const line of stdout.split('\n')) {
     if (!line.includes('Workspace:')) continue
-    const name = line.split('Workspace:')[1].split('(')[0].trim()
-    if (name) return name
+    const after = line.split('Workspace:')[1]
+    const name = after.split('(')[0].trim()
+    if (!name) continue
+    // Anything inside the parens, rather than a `ws-` prefix we would have to
+    // keep in sync with Modal's ID format.
+    const id = after.match(/\(([^)]+)\)/)?.[1].trim()
+    return id ? { name, id } : { name }
   }
   return undefined
 }

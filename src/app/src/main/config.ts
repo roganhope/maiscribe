@@ -40,6 +40,11 @@ function defaultConfig(): AppConfig {
       vaultPath: null,
       outputFolder: null,
     },
+    modal: {
+      workspaceId: null,
+      workspaceName: null,
+      provisionedAt: null,
+    },
   }
 }
 
@@ -83,8 +88,40 @@ export function getConfig(): AppConfig | null {
     config.pipeline.minSpeakers = 2
     dirty = true
   }
+  // Configs written before workspace tracking existed. provisionedAt stays null
+  // rather than being assumed — the workspace may well be provisioned already,
+  // but nothing recorded it, and re-running setup is cheap when it is warm.
+  if (!config.modal) {
+    config.modal = { workspaceId: null, workspaceName: null, provisionedAt: null }
+    dirty = true
+  }
   if (dirty) writeFileSync(path, JSON.stringify(config, null, 2), 'utf-8')
   return config as AppConfig
+}
+
+/** Record the workspace a successful validation identified. */
+export function setModalWorkspace(workspace: { id?: string; name: string }): void {
+  const config = getConfig()
+  if (!config) return
+  const changed = config.modal.workspaceId
+    ? workspace.id && config.modal.workspaceId !== workspace.id
+    : config.modal.workspaceName && config.modal.workspaceName !== workspace.name
+  setConfig({
+    ...config,
+    modal: {
+      // Backfill: a config that only ever knew a name gains an ID the first
+      // time one is seen, without a migration step.
+      workspaceId: workspace.id ?? config.modal.workspaceId,
+      workspaceName: workspace.name,
+      provisionedAt: changed ? null : config.modal.provisionedAt,
+    },
+  })
+}
+
+export function markProvisioned(): void {
+  const config = getConfig()
+  if (!config) return
+  setConfig({ ...config, modal: { ...config.modal, provisionedAt: new Date().toISOString() } })
 }
 
 export function setConfig(config: AppConfig): void {
@@ -107,4 +144,7 @@ export function registerConfigIpc(): void {
     mkdirSync(join(config.basePath, 'outbox'), { recursive: true })
   })
   ipcMain.handle('config:defaultBasePath', () => defaultBasePath())
+  ipcMain.handle('config:setModalWorkspace', (_event, workspace: { id?: string; name: string }) =>
+    setModalWorkspace(workspace)
+  )
 }

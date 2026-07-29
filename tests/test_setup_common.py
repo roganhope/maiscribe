@@ -232,3 +232,37 @@ def test_every_step_is_reported():
     steps = [_recorder("one", PASS, order), _recorder("two", PASS, order)]
     run_steps(steps, {}, lambda name, outcome: reported.append(name))
     assert reported == ["one", "two"]
+
+
+# --- on_start hook ---------------------------------------------------------
+# A progress bar needs the label before the work runs, not after it.
+
+def test_on_start_fires_before_the_step_runs():
+    events = []
+    steps = [_recorder("one", PASS, events), _recorder("two", PASS, events)]
+    run_steps(steps, {}, lambda *_: None, on_start=lambda i, name, total: events.append(f"start:{name}"))
+    assert events == ["start:one", "one", "start:two", "two"]
+
+
+def test_on_start_receives_index_and_total():
+    seen = []
+    order = []
+    steps = [_recorder(n, PASS, order) for n in ("one", "two", "three")]
+    run_steps(steps, {}, lambda *_: None, on_start=lambda i, name, total: seen.append((i, name, total)))
+    assert seen == [(0, "one", 3), (1, "two", 3), (2, "three", 3)]
+
+
+def test_on_start_does_not_fire_for_steps_skipped_by_a_failure():
+    started = []
+    order = []
+    steps = [_recorder("one", FAIL, order), _recorder("two", PASS, order)]
+    run_steps(steps, {}, lambda *_: None, on_start=lambda i, name, total: started.append(name))
+    assert started == ["one"]
+
+
+def test_on_start_is_optional_for_existing_callers():
+    """check_modal.py, init_modal.py and health_modal.py all pass three args."""
+    order = []
+    steps = [_recorder("one", PASS, order)]
+    assert run_steps(steps, {}, lambda *_: None) == EXIT_OK
+    assert order == ["one"]

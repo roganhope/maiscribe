@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import type { AppConfig } from '../../shared/types'
+import type { AppConfig, ModalWorkspace, WorkspaceComparison } from '../../shared/types'
+import { compareWorkspace, workspaceLineState } from '../../shared/workspace'
 import { useConfig } from '../hooks/useConfig'
 import { SecretInput } from './SecretInput'
+import { WorkspaceSwitchWarning } from './WorkspaceSwitchWarning'
 
 type SettingsTab = 'keys' | 'defaults' | 'location' | 'setup'
 
@@ -18,6 +20,10 @@ export function Settings({ onOpenWizard }: SettingsProps) {
   const [tab, setTab] = useState<SettingsTab>('defaults')
   const [syncing, setSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [validating, setValidating] = useState(false)
+  const [modalError, setModalError] = useState<string | null>(null)
+  const [comparison, setComparison] = useState<WorkspaceComparison | null>(null)
+  const [pendingWorkspace, setPendingWorkspace] = useState<ModalWorkspace | null>(null)
 
   useEffect(() => {
     if (config) setDraft({ ...config })
@@ -28,21 +34,80 @@ export function Settings({ onOpenWizard }: SettingsProps) {
 
   async function handleSave() {
     if (!draft) return
+
+    const modalId = newEnv.MODAL_TOKEN_ID || envKeys.MODAL_TOKEN_ID
+    const modalSecret = newEnv.MODAL_TOKEN_SECRET || envKeys.MODAL_TOKEN_SECRET
+    const modalChanged = Boolean(newEnv.MODAL_TOKEN_ID || newEnv.MODAL_TOKEN_SECRET)
+
+    // Changed Modal tokens have to be validated before they are written: the
+    // validation call is the only thing that reports which workspace they
+    // belong to, and switching workspaces throws away the cached image and
+    // model weights. A token that fails now blocks the save rather than being
+    // stored silently and failing mid-transcription later.
+    if (modalChanged && modalId && modalSecret) {
+      setValidating(true)
+      const result = await window.api.validate.modal(modalId, modalSecret)
+      setValidating(false)
+      if (!result.ok) {
+        setModalError(result.error || 'Modal rejected these tokens')
+        return
+      }
+      setModalError(null)
+      if (result.workspace) {
+        const verdict = compareWorkspace(config?.modal, result.workspace)
+        // Only a switch needs a decision; a rename is recorded and waved through.
+        if (verdict.kind === 'changed') {
+          setPendingWorkspace(result.workspace)
+          setComparison(verdict)
+          return
+        }
+        await window.api.config.setModalWorkspace(result.workspace)
+      }
+    }
+
+    await commitSave(modalChanged, modalId, modalSecret)
+  }
+
+  async function commitSave(modalChanged: boolean, modalId?: string, modalSecret?: string) {
+    if (!draft) return
     await saveConfig(draft)
     if (Object.values(newEnv).some(Boolean)) {
       await window.api.env.set(newEnv)
     }
     const hfToken = newEnv.HF_TOKEN || envKeys.HF_TOKEN
-    const modalId = newEnv.MODAL_TOKEN_ID || envKeys.MODAL_TOKEN_ID
-    const modalSecret = newEnv.MODAL_TOKEN_SECRET || envKeys.MODAL_TOKEN_SECRET
     if (hfToken && modalId && modalSecret) {
       setSyncing(true)
       const result = await window.api.validate.syncModalSecret(hfToken, modalId, modalSecret)
       setSyncStatus(result)
       setSyncing(false)
+      // A workspace switch leaves the new one cold, so warm it now rather than
+      // during the next transcription.
+      if (modalChanged) window.api.provision.start()
     }
+
+    setEnvKeys({ ...envKeys, ...newEnv })
+    setComparison(null)
+    setPendingWorkspace(null)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  /** "Switch to X" — record the new workspace and finish the save it interrupted. */
+  async function confirmWorkspaceSwitch() {
+    if (pendingWorkspace) await window.api.config.setModalWorkspace(pendingWorkspace)
+    await commitSave(
+      true,
+      newEnv.MODAL_TOKEN_ID || envKeys.MODAL_TOKEN_ID,
+      newEnv.MODAL_TOKEN_SECRET || envKeys.MODAL_TOKEN_SECRET
+    )
+  }
+
+  /** "Keep X" — drop the pasted tokens; the saved ones stay untouched. */
+  function cancelWorkspaceSwitch() {
+    const { MODAL_TOKEN_ID: _id, MODAL_TOKEN_SECRET: _secret, ...rest } = newEnv
+    setNewEnv(rest)
+    setComparison(null)
+    setPendingWorkspace(null)
   }
 
   async function selectFolder() {
@@ -86,12 +151,24 @@ export function Settings({ onOpenWizard }: SettingsProps) {
                   <SecretInput
                     placeholder={envKeys[key] ? '(set) enter new value to change' : 'Not set'}
                     value={newEnv[key] || ''}
-                    onChange={(value) => setNewEnv({ ...newEnv, [key]: value })}
+                    onChange={(value) => { setNewEnv({ ...newEnv, [key]: value }); setModalError(null) }}
                     className="mt-1"
                   />
                 </div>
               ))}
             </div>
+            <WorkspaceLine
+              modal={config?.modal}
+              hasTokens={Boolean(envKeys.MODAL_TOKEN_ID || newEnv.MODAL_TOKEN_ID)}
+            />
+            {modalError && <p className="mt-2 text-xs text-red-400">{modalError}</p>}
+            {comparison && (
+              <WorkspaceSwitchWarning
+                comparison={comparison}
+                onConfirm={confirmWorkspaceSwitch}
+                onCancel={cancelWorkspaceSwitch}
+              />
+            )}
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-300 mb-2">Hugging Face</h3>
@@ -264,11 +341,52 @@ export function Settings({ onOpenWizard }: SettingsProps) {
       {tab !== 'setup' && (
         <button
           onClick={handleSave}
-          className="mt-auto py-2 bg-accent-500 hover:bg-accent-600 rounded font-medium"
+          disabled={validating || syncing}
+          className="mt-auto py-2 bg-accent-500 hover:bg-accent-600 disabled:opacity-40 rounded font-medium"
         >
-          {saved ? 'Saved!' : 'Save'}
+          {validating ? 'Checking Modal tokens...' : saved ? 'Saved!' : 'Save'}
         </button>
       )}
     </div>
   )
+}
+
+/**
+ * Which Modal workspace the stored tokens point at.
+ *
+ * Two opaque secret fields give no way to tell which account is configured, and
+ * the switch warning is the first place the word "workspace" would otherwise
+ * appear. Reads config rather than making a live call, so opening Settings is free.
+ */
+function WorkspaceLine({
+  modal,
+  hasTokens,
+}: {
+  modal?: AppConfig['modal']
+  hasTokens: boolean
+}) {
+  const state = workspaceLineState(modal, hasTokens)
+
+  switch (state.kind) {
+    case 'hidden':
+      return null
+    case 'unknown':
+      return (
+        <p className="mt-2 text-xs text-gray-500">
+          Workspace: unknown — test the connection to identify it
+        </p>
+      )
+    case 'unprovisioned':
+      return (
+        <p className="mt-2 text-xs text-yellow-400">
+          Workspace: <span className="font-mono">{state.name}</span> — not provisioned yet
+        </p>
+      )
+    case 'ready':
+      return (
+        <p className="mt-2 text-xs text-gray-500">
+          Workspace: <span className="font-mono">{state.name}</span>
+        </p>
+      )
+  }
 }

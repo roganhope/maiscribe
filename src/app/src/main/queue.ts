@@ -6,6 +6,7 @@ import { runPipeline, runSummarize, cancelPipeline } from './pipeline'
 import { ensurePythonEnv, isEnvReady } from './python-env'
 import { registerNewSpeakers, getSpeakerNamesForRecording } from './speakers'
 import { getAudioDurationSec, estimateProcessingSeconds } from './estimate'
+import { isBlocking, onReady } from './provision'
 
 let items: QueueItem[] = []
 let processing = false
@@ -37,6 +38,10 @@ function updateProgress(item: QueueItem): void {
 
 function processNext(): void {
   if (processing) return
+  // Hold items back while the workspace is being provisioned, so a transcription
+  // does not race the prefetch for the same cold volume. Only an in-flight run
+  // blocks — see isBlocking.
+  if (isBlocking()) return
   const next = items.find(i => i.status === 'pending')
   if (!next) return
 
@@ -207,6 +212,9 @@ export function updateItemOptions(id: string, options: Partial<QueueItemOptions>
 }
 
 export function registerQueueIpc(): void {
+  // Provisioning finishing is what releases anything held by the gate above.
+  onReady(() => processNext())
+
   ipcMain.on('queue:add', (_event, filePaths: string[]) => {
     addToQueue(filePaths)
   })
