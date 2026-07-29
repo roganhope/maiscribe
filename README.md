@@ -16,7 +16,7 @@ Transcribe and diarize audio files using Whisper large-v3 on Modal GPUs, with sp
 ### Pipeline (Python)
 
 ```bash
-cd src/pipeline
+cd src/scripts
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -71,7 +71,7 @@ All keys are stored in a local `.env` file (the app manages this via the wizard/
 ## CLI Usage
 
 ```bash
-cd src/pipeline
+cd src/scripts
 
 # Transcribe files
 python transcribe.py recording.m4a

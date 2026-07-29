@@ -1,7 +1,7 @@
 """The model manifest is the single source of truth — these tests keep it honest.
 
 Model IDs used to live in three places (modal_app.py, validate-keys.ts,
-check-hf-access.mjs). src/pipeline/models.json is now the one list the checks read,
+check-hf-access.mjs). src/scripts/models.json is now the one list the checks read,
 so the risk moves from "duplicated" to "silently out of date". These tests fail
 when the manifest and the pipeline disagree.
 """
@@ -10,11 +10,11 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "scripts"))
 
 from _common import MODELS_MANIFEST, load_manifest, load_models
 
-PIPELINE_DIR = Path(__file__).parent.parent / "src" / "pipeline"
+PIPELINE_DIR = Path(__file__).parent.parent / "src" / "scripts"
 MODAL_APP_SOURCE = (PIPELINE_DIR / "modal_app.py").read_text(encoding="utf-8")
 
 

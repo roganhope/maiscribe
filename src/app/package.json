@@ -24,9 +24,9 @@
     ],
     "extraResources": [
       {
-        "from": "../pipeline",
-        "to": "pipeline",
-        "filter": ["**/*.py", "requirements.txt"]
+        "from": "../scripts",
+        "to": "scripts",
+        "filter": ["**/*.py", "requirements.txt", "models.json"]
       }
     ],
     "mac": {

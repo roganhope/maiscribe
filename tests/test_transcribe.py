@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "pipeline"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "scripts"))
 
 import transcribe
 from transcribe import validate_files, write_error_log

@@ -18,9 +18,12 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_DIR = REPO_ROOT / "src" / "pipeline"
-MODELS_MANIFEST = PIPELINE_DIR / "models.json"
+SCRIPTS_DIR = Path(__file__).resolve().parent
+SRC_DIR = SCRIPTS_DIR.parent
+REPO_ROOT = SRC_DIR.parent
+# The pipeline (modal_app, transcribe, summarize) lives alongside the scripts.
+PIPELINE_DIR = SCRIPTS_DIR
+MODELS_MANIFEST = SCRIPTS_DIR / "models.json"
 
 SECRET_NAME = "huggingface"
 VOLUME_NAME = "whisper-models"
@@ -302,7 +305,7 @@ def parse_workspace(stdout):
 
 
 def import_pipeline():
-    """Put src/pipeline on the path so modal_app / transcribe can be imported."""
+    """Put the script directory on the path so modal_app / transcribe import."""
     if str(PIPELINE_DIR) not in sys.path:
         sys.path.insert(0, str(PIPELINE_DIR))
 

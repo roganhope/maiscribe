@@ -4,8 +4,8 @@
 // (validateHuggingFace / checkModelAccess) with no Electron dependency.
 //
 // Usage:
-//   node scripts/check-hf-access.mjs <HF_TOKEN>
-//   HF_TOKEN=hf_xxx node scripts/check-hf-access.mjs
+//   node src/scripts/check-hf-access.mjs <HF_TOKEN>
+//   HF_TOKEN=hf_xxx node src/scripts/check-hf-access.mjs
 //
 // Exits 0 if all models are accessible, 1 otherwise.
 
@@ -15,12 +15,9 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 // The model list is data, not code — src/pipeline/models.json is the single
-// source of truth that scripts/check_hf.py also reads. Adding a model there
+// source of truth that src/scripts/check_hf.py also reads. Adding a model there
 // means this script picks it up with no change here.
-const MANIFEST = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '..', 'src', 'pipeline', 'models.json'
-)
+const MANIFEST = join(dirname(fileURLToPath(import.meta.url)), 'models.json')
 const HF_REQUIRED_MODELS = JSON.parse(readFileSync(MANIFEST, 'utf-8'))
   .models.map((m) => m.repo)
 
@@ -57,8 +54,8 @@ async function main() {
   const token = process.argv[2] || process.env.HF_TOKEN
   if (!token) {
     console.error('Error: no token provided.')
-    console.error('Usage: node scripts/check-hf-access.mjs <HF_TOKEN>')
-    console.error('   or: HF_TOKEN=hf_xxx node scripts/check-hf-access.mjs')
+    console.error('Usage: node src/scripts/check-hf-access.mjs <HF_TOKEN>')
+    console.error('   or: HF_TOKEN=hf_xxx node src/scripts/check-hf-access.mjs')
     process.exit(2)
   }
 

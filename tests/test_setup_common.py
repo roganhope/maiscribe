@@ -1,9 +1,9 @@
-"""Tests for scripts/_common.py — the plumbing every setup script shares."""
+"""Tests for src/scripts/_common.py — the plumbing every setup script shares."""
 
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "scripts"))
 
 import _common
 from _common import (

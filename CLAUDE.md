@@ -16,7 +16,7 @@ bun run build        # build for production
 bun run dist         # build + package .dmg/.zip
 ```
 
-### Python Pipeline (from `src/pipeline/`)
+### Python Pipeline (from `src/scripts/`)
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -31,26 +31,26 @@ pytest tests/test_summarize.py  # run one test file
 pytest -k test_name             # run a single test
 ```
 
-Tests use `sys.path.insert` to add `src/pipeline` — no package install needed, just activate the venv.
+Tests use `sys.path.insert` to add `src/scripts` — no package install needed, just activate the venv.
 
 ### Utility Scripts (from repo root)
 Each script does one thing and is runnable on its own. All share the same exit codes: **0** = pass, **1** = broken, **2** = a credential is missing (nothing broken, setup is just incomplete).
 
 ```bash
-python scripts/check_modal.py     # Modal reachable, tokens valid, an app can run
-python scripts/check_hf.py        # every model in models.json is reachable
-python scripts/check_claude.py    # Claude API reachable (optional — summaries only)
-python scripts/setup_modal.py     # create secret, build image, prefetch models  [expensive]
-python scripts/health_modal.py    # read-only: is this workspace still healthy?
+python src/scripts/check_modal.py     # Modal reachable, tokens valid, an app can run
+python src/scripts/check_hf.py        # every model in models.json is reachable
+python src/scripts/check_claude.py    # Claude API reachable (optional — summaries only)
+python src/scripts/setup_modal.py     # create secret, build image, prefetch models  [expensive]
+python src/scripts/health_modal.py    # read-only: is this workspace still healthy?
 
-python scripts/init_modal.py          # orchestrator: run every check, change nothing
-python scripts/init_modal.py --setup  # provision a fresh workspace, then verify
+python src/scripts/init_modal.py          # orchestrator: run every check, change nothing
+python src/scripts/init_modal.py --setup  # provision a fresh workspace, then verify
 ```
 
 **Shared behaviour.** Credentials resolve from the process environment first and `{userData}/.env` second — the inverse of the app's own precedence (`pipeline.ts:56`), so a throwaway workspace can be tested inline without touching the file:
 
 ```bash
-MODAL_TOKEN_ID=... MODAL_TOKEN_SECRET=... python scripts/setup_modal.py
+MODAL_TOKEN_ID=... MODAL_TOKEN_SECRET=... python src/scripts/setup_modal.py
 ```
 
 The Modal scripts re-exec under the app's provisioned venv Python (the interpreter `pipeline.ts` spawns), so `python` above can be anything; `--python PATH` overrides. HTTPS uses certifi's CA bundle when available, because a python.org install that never ran `Install Certificates.command` otherwise fails every request with `CERTIFICATE_VERIFY_FAILED`.
@@ -63,7 +63,7 @@ The Modal scripts re-exec under the app's provisioned venv Python (the interpret
 
 ### Model manifest
 
-`src/pipeline/models.json` is the single source of truth for the Hugging Face repos the pipeline pulls. `check_hf.py` and `check-hf-access.mjs` both read it, so adding or swapping a model means editing that one file. `tests/test_models_manifest.py` fails if the manifest and `modal_app.py` drift apart.
+`src/scripts/models.json` is the single source of truth for the Hugging Face repos the pipeline pulls. `check_hf.py` and `check-hf-access.mjs` both read it, so adding or swapping a model means editing that one file. `tests/test_models_manifest.py` fails if the manifest and `modal_app.py` drift apart.
 
 `src/app/src/main/validate-keys.ts:58` still carries its own hardcoded copy of the list — worth pointing at the manifest when that file is next touched.
 
@@ -71,7 +71,7 @@ The Modal scripts re-exec under the app's provisioned venv Python (the interpret
 
 ## Architecture
 
-### Pipeline (`src/pipeline/`)
+### Pipeline (`src/scripts/`)
 
 Three files, each self-contained:
 
