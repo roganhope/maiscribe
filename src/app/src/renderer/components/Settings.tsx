@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { AppConfig } from '../../shared/types'
 import { useConfig } from '../hooks/useConfig'
+import { SecretInput } from './SecretInput'
 
 type SettingsTab = 'keys' | 'defaults' | 'location' | 'setup'
 
@@ -82,12 +83,11 @@ export function Settings({ onOpenWizard }: SettingsProps) {
               {['MODAL_TOKEN_ID', 'MODAL_TOKEN_SECRET'].map(key => (
                 <div key={key}>
                   <label className="text-sm text-gray-400">{key}</label>
-                  <input
-                    type="password"
+                  <SecretInput
                     placeholder={envKeys[key] ? '(set) enter new value to change' : 'Not set'}
                     value={newEnv[key] || ''}
-                    onChange={(e) => setNewEnv({ ...newEnv, [key]: e.target.value })}
-                    className="w-full bg-gray-700 rounded px-3 py-2 text-sm mt-1 placeholder-gray-500"
+                    onChange={(value) => setNewEnv({ ...newEnv, [key]: value })}
+                    className="mt-1"
                   />
                 </div>
               ))}
@@ -99,12 +99,11 @@ export function Settings({ onOpenWizard }: SettingsProps) {
               {['HF_TOKEN'].map(key => (
                 <div key={key}>
                   <label className="text-sm text-gray-400">{key}</label>
-                  <input
-                    type="password"
+                  <SecretInput
                     placeholder={envKeys[key] ? '(set) enter new value to change' : 'Not set'}
                     value={newEnv[key] || ''}
-                    onChange={(e) => setNewEnv({ ...newEnv, [key]: e.target.value })}
-                    className="w-full bg-gray-700 rounded px-3 py-2 text-sm mt-1 placeholder-gray-500"
+                    onChange={(value) => setNewEnv({ ...newEnv, [key]: value })}
+                    className="mt-1"
                   />
                 </div>
               ))}
@@ -121,12 +120,11 @@ export function Settings({ onOpenWizard }: SettingsProps) {
               {['CLAUDE_API_KEY'].map(key => (
                 <div key={key}>
                   <label className="text-sm text-gray-400">{key}</label>
-                  <input
-                    type="password"
+                  <SecretInput
                     placeholder={envKeys[key] ? '(set) enter new value to change' : 'Not set'}
                     value={newEnv[key] || ''}
-                    onChange={(e) => setNewEnv({ ...newEnv, [key]: e.target.value })}
-                    className="w-full bg-gray-700 rounded px-3 py-2 text-sm mt-1 placeholder-gray-500"
+                    onChange={(value) => setNewEnv({ ...newEnv, [key]: value })}
+                    className="mt-1"
                   />
                 </div>
               ))}

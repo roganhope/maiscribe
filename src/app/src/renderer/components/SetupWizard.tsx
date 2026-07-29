@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { AppConfig } from '../../shared/types'
 import iconUrl from '../assets/icon.png'
+import { SecretInput } from './SecretInput'
 
 type Step = 'welcome' | 'folder' | 'modal' | 'huggingface' | 'claude' | 'options' | 'done'
 const STEPS: Step[] = ['welcome', 'folder', 'modal', 'huggingface', 'claude', 'options', 'done']
@@ -187,20 +188,18 @@ export function SetupWizard({ onComplete }: Props) {
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-sm text-gray-400">Token ID</label>
-                <input
-                  type="password"
+                <SecretInput
                   value={modalTokenId}
-                  onChange={(e) => { setModalTokenId(e.target.value); resetTest() }}
-                  className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 mt-1"
+                  onChange={(value) => { setModalTokenId(value); resetTest() }}
+                  className="mt-1"
                 />
               </div>
               <div>
                 <label className="text-sm text-gray-400">Token Secret</label>
-                <input
-                  type="password"
+                <SecretInput
                   value={modalTokenSecret}
-                  onChange={(e) => { setModalTokenSecret(e.target.value); resetTest() }}
-                  className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 mt-1"
+                  onChange={(value) => { setModalTokenSecret(value); resetTest() }}
+                  className="mt-1"
                 />
               </div>
             </div>
@@ -265,11 +264,10 @@ export function SetupWizard({ onComplete }: Props) {
             </div>
             <div>
               <label className="text-sm text-gray-400">Access Token</label>
-              <input
-                type="password"
+              <SecretInput
                 value={hfToken}
-                onChange={(e) => { setHfToken(e.target.value); resetTest() }}
-                className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 mt-1"
+                onChange={(value) => { setHfToken(value); resetTest() }}
+                className="mt-1"
               />
             </div>
 
@@ -319,11 +317,10 @@ export function SetupWizard({ onComplete }: Props) {
             </ol>
             <div>
               <label className="text-sm text-gray-400">API Key</label>
-              <input
-                type="password"
+              <SecretInput
                 value={claudeApiKey}
-                onChange={(e) => { setClaudeApiKey(e.target.value); resetTest() }}
-                className="w-full bg-gray-700 rounded px-3 py-2 text-sm text-gray-200 mt-1"
+                onChange={(value) => { setClaudeApiKey(value); resetTest() }}
+                className="mt-1"
               />
             </div>
 
