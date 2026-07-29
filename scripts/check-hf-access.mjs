@@ -10,12 +10,19 @@
 // Exits 0 if all models are accessible, 1 otherwise.
 
 import { request } from 'node:https'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
-const HF_REQUIRED_MODELS = [
-  'pyannote/speaker-diarization-3.1',
-  'pyannote/segmentation-3.0',
-  'pyannote/embedding',
-]
+// The model list is data, not code — src/pipeline/models.json is the single
+// source of truth that scripts/check_hf.py also reads. Adding a model there
+// means this script picks it up with no change here.
+const MANIFEST = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..', 'src', 'pipeline', 'models.json'
+)
+const HF_REQUIRED_MODELS = JSON.parse(readFileSync(MANIFEST, 'utf-8'))
+  .models.map((m) => m.repo)
 
 function httpsGet(options) {
   return new Promise((resolve, reject) => {

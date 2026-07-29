@@ -28,6 +28,26 @@ _whisper_model = None
 _diarization_pipeline = None
 _embedding_inference = None
 
+# Where the mounted whisper-models volume lives inside the container.
+MODELS_DIR = "/models"
+HF_CACHE_DIR = f"{MODELS_DIR}/hf"
+
+
+def _use_volume_hf_cache():
+    """Point the Hugging Face cache at the volume so weights survive the container.
+
+    faster-whisper is handed `download_root` directly, but pyannote goes through
+    huggingface_hub, which caches under HF_HOME — by default a container-local
+    path that dies with the container, so every cold start re-downloads it.
+
+    Set inside the function body rather than on the image: huggingface_hub reads
+    HF_HOME at import time, and the loaders below import it lazily, so this lands
+    before it matters. Setting it on the image would invalidate the image and
+    force a rebuild for no benefit.
+    """
+    import os
+    os.environ.setdefault("HF_HOME", HF_CACHE_DIR)
+
 
 def _load_whisper():
     global _whisper_model
@@ -135,6 +155,7 @@ def transcribe_audio(audio_bytes: bytes, filename: str, min_speakers: int = 2) -
     from pyannote.audio import Audio
     from pyannote.core import Segment
 
+    _use_volume_hf_cache()
     token = os.environ["HUGGING_FACE_HUB_TOKEN"]
     whisper = _load_whisper()
     diarizer = _load_diarization(token)
@@ -240,5 +261,172 @@ def transcribe_audio(audio_bytes: bytes, filename: str, min_speakers: int = 2) -
                     os.unlink(path)
                 except OSError:
                     pass
+
+
+@app.function(
+    gpu="T4",
+    image=image,
+    volumes={"/models": model_volume},
+    secrets=[modal.Secret.from_name("huggingface")],
+    timeout=3600,
+)
+def prefetch_models() -> dict:
+    """Download every model into the volume so the first transcription is fast.
+
+    Runs on a GPU rather than CPU on purpose: the loaders instantiate on cuda, so
+    a CPU run would download the weights but prove nothing about whether they
+    actually load. This is the step that makes a cold workspace usable.
+    """
+    import os
+    import time
+
+    _use_volume_hf_cache()
+    token = os.environ["HUGGING_FACE_HUB_TOKEN"]
+
+    steps = []
+
+    def fetch(name, fn):
+        started = time.monotonic()
+        try:
+            fn()
+            ok, error = True, None
+        except Exception as e:
+            ok, error = False, str(e)
+        steps.append({
+            "name": name,
+            "ok": ok,
+            "error": error,
+            "seconds": round(time.monotonic() - started, 1),
+        })
+
+    def dir_size_mb(path):
+        total = 0
+        for root, _, files in os.walk(path):
+            for f in files:
+                try:
+                    total += os.path.getsize(os.path.join(root, f))
+                except OSError:
+                    pass
+        return round(total / (1024 * 1024), 1)
+
+    before_mb = dir_size_mb(MODELS_DIR)
+
+    fetch("whisper", _load_whisper)
+    fetch("diarization", lambda: _load_diarization(token))
+    fetch("embedding", lambda: _load_embedding(token))
+
+    # Without this the downloads die with the container and the next run repeats them.
+    try:
+        model_volume.commit()
+        committed = True
+    except Exception:
+        committed = False
+
+    return {
+        "ok": all(s["ok"] for s in steps),
+        "steps": steps,
+        "volume": {
+            "megabytes_before": before_mb,
+            "megabytes_after": dir_size_mb(MODELS_DIR),
+            "committed": committed,
+        },
+    }
+
+
+@app.function(
+    gpu="T4",
+    image=image,
+    volumes={"/models": model_volume},
+    secrets=[modal.Secret.from_name("huggingface")],
+    timeout=1800,
+)
+def verify_setup() -> dict:
+    """Exercise everything transcribe_audio needs, without transcribing.
+
+    Shares image, volume and secret with transcribe_audio so a passing run proves
+    the real artifact builds. Each step is timed and caught independently — one
+    failure must not mask the ones after it.
+    """
+    import os
+    import subprocess
+    import time
+
+    _use_volume_hf_cache()
+    steps: list[dict] = []
+
+    def step(name: str, fn):
+        started = time.monotonic()
+        try:
+            detail = fn()
+            ok, error = True, None
+        except Exception as e:
+            detail, ok, error = None, False, str(e)
+        steps.append({
+            "name": name,
+            "ok": ok,
+            "detail": detail,
+            "error": error,
+            "seconds": round(time.monotonic() - started, 1),
+        })
+        return ok
+
+    def check_secret():
+        token = os.environ["HUGGING_FACE_HUB_TOKEN"]
+        if not token:
+            raise RuntimeError("HUGGING_FACE_HUB_TOKEN is empty")
+        return "injected"
+
+    def check_gpu():
+        import torch
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA not available on the container")
+        return torch.cuda.get_device_name(0)
+
+    def check_ffmpeg():
+        out = subprocess.run(
+            ["ffmpeg", "-version"], check=True, capture_output=True, text=True
+        )
+        return out.stdout.splitlines()[0]
+
+    step("secret", check_secret)
+    step("gpu", check_gpu)
+    step("ffmpeg", check_ffmpeg)
+
+    # Snapshot the volume *before* loading whisper. Non-empty on a second run is
+    # direct evidence that weights persist between runs — more reliable than
+    # inferring it from download timing.
+    try:
+        cached_before = sorted(os.listdir("/models"))
+    except OSError:
+        cached_before = []
+
+    # Only meaningful once the secret is present; the loaders need the token.
+    token = os.environ.get("HUGGING_FACE_HUB_TOKEN", "")
+    step("whisper", lambda: type(_load_whisper()).__name__)
+    step("diarization", lambda: type(_load_diarization(token)).__name__)
+    step("embedding", lambda: type(_load_embedding(token)).__name__)
+
+    # Persist any newly downloaded whisper weights so the next run reuses them.
+    committed = None
+    try:
+        model_volume.commit()
+        committed = True
+    except Exception:
+        committed = False
+
+    try:
+        cached_after = sorted(os.listdir("/models"))
+    except OSError:
+        cached_after = []
+
+    return {
+        "ok": all(s["ok"] for s in steps),
+        "steps": steps,
+        "volume": {
+            "cached_on_entry": cached_before,
+            "cached_on_exit": cached_after,
+            "committed": committed,
+        },
+    }
 
 

@@ -1,0 +1,36 @@
+{
+  "_comment": "Single source of truth for the Hugging Face repos this pipeline pulls. scripts/check_hf.py iterates `models`; tests/test_models_manifest.py asserts modal_app.py has not drifted from it. Add a repo here when the pipeline starts using one. `named_in_source: false` means the repo is real and the token needs access to it, but the string does not appear in modal_app.py — so the drift test cannot look for it there.",
+  "whisper_model_name": "large-v3",
+  "models": [
+    {
+      "repo": "Systran/faster-whisper-large-v3",
+      "gated": false,
+      "used_for": "transcription",
+      "loaded_by": "_load_whisper",
+      "named_in_source": false,
+      "note": "faster-whisper resolves the alias 'large-v3' to this repo internally; modal_app.py only names the alias"
+    },
+    {
+      "repo": "pyannote/speaker-diarization-3.1",
+      "gated": true,
+      "used_for": "diarization",
+      "loaded_by": "_load_diarization",
+      "named_in_source": true
+    },
+    {
+      "repo": "pyannote/segmentation-3.0",
+      "gated": true,
+      "used_for": "diarization",
+      "loaded_by": "_load_diarization",
+      "named_in_source": false,
+      "note": "pulled in transitively by speaker-diarization-3.1; never named directly, but the token still needs access or diarization fails"
+    },
+    {
+      "repo": "pyannote/embedding",
+      "gated": true,
+      "used_for": "speaker embeddings",
+      "loaded_by": "_load_embedding",
+      "named_in_source": true
+    }
+  ]
+}
