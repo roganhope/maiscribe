@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { parseModalTokenCommand, maskToken } from './modalCommand'
 
-const ID = 'ak-REDACTED-TOKEN-ID'
-const SECRET = 'as-REDACTED-TOKEN-SECRET'
+// Supplied by .env.test when present (gitignored — see .env.test.example),
+// otherwise placeholders. The parser only inspects the shape of the string, so
+// both exercise identical paths and no real credential belongs in the repo.
+const ID = process.env.MODAL_TEST_TOKEN_ID ?? 'ak-EXAMPLETOKENID'
+const SECRET = process.env.MODAL_TEST_TOKEN_SECRET ?? 'as-EXAMPLETOKENSECRET'
 
 describe('parseModalTokenCommand', () => {
   it('parses the line Modal actually shows', () => {
@@ -92,7 +95,10 @@ describe('parseModalTokenCommand', () => {
 
 describe('maskToken', () => {
   it('shows enough to recognise and no more', () => {
-    expect(maskToken(ID)).toBe('ak-gWyAU…')
+    // A fixed literal, not ID: the expected output is a slice of the input, so
+    // deriving it from ID would either restate the implementation or break when
+    // .env.test supplies a different value.
+    expect(maskToken('ak-ABCDEFGHIJKLMNOP')).toBe('ak-ABCDE…')
   })
 
   it('leaves short values alone', () => {
