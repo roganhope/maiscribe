@@ -2,26 +2,29 @@
   <img src="src/app/resources/icon.png" width="128" height="128" alt="maiscribe icon" />
 </p>
 
-# maiscribe
+<!-- shield badges go here -->
 
-Welcome! This is a completely open source app to transcribe audio files with ease. Only supports mac for now.
+**Release 1 Beta**
 
-Your transcription runs through a remote service, but is private. The summarization step is not private. Update to a private llm or such to do so.
+## Mission statement
 
+I don’t want to pay for audio transcription and I like privacy. My laptop was not powerful enough to run the models locally. So I created this app to get a mixture of both.
 
-Transcribe and diarize audio files using Whisper large-v3 on Modal GPUs, with speaker identification and Claude-powered summaries. Includes an Electron desktop app and a CLI.
+## Current Features
 
-## Install
+- Upload an audio file, transcribe it on an external cloud provider, identify speakers, and use claude to summarize
+- Browse your recordings
+- Playback files
 
-### Pipeline (Python)
+## HOW TO INSTALL
+
+First, install [bun](https://bun.sh) (package manager):
 
 ```bash
-cd src/scripts
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+curl -fsSL https://bun.sh/install | bash
 ```
 
-### Desktop App (Electron)
+Then run maiscribe:
 
 ```bash
 cd src/app
@@ -29,73 +32,43 @@ bun install
 bun run dev
 ```
 
-### DMG Installer (Experimental)
+## How it works
 
-You can build a standalone macOS installer that bundles everything (app + pipeline scripts) into a single `.dmg` file. No separate Python setup or repo clone needed — the app provisions its own Python environment on first launch.
+1. I set this up with Modal, a serves cloud platform that has a free tier (I will be configuring a version to let this run on your local machine). Modal does not use your data as of now, and is technically secure. But it does leave your machine.
+2. You accept the hugging face models that do the things. Maiscribe handles the app install for you.
+3. You can set up a claude api key if you want summarization (this part is not secure).
 
-```bash
-cd src/app
-npm install
-npm run dist
-```
+## SCREENSHOTS HERE
 
-The DMG will be at `src/app/release/maiscribe-<version>-arm64.dmg`. Open it and drag maiscribe to Applications.
+## Setup instructions
 
-> **Note:** The DMG is currently unsigned and unnotarized. macOS will show a warning on first launch — right-click the app and select "Open" to bypass Gatekeeper, or go to System Settings → Privacy & Security and click "Open Anyway".
+The wizard will walk you through this though.
 
-## Setup Wizard & Required Keys
+### MODAL SET UP
 
-On first launch, the setup wizard walks you through configuration:
+1. Create an account if you don’t have one
+2. Set up a workspace
+3. Add a card (generous free tier you shouldn’t get charged unless you run a lot of files)
+4. Save your key for the wizard
 
-1. **File Location** — Where transcripts are saved. A default is selected for you, but you can change it.
+### HUGGING FACE SET UP
 
-2. **Modal Key** `REQUIRED` — [Modal](https://modal.com) is a serverless GPU platform. This key is needed to run transcription on remote GPUs so you don't use compute on your own machine.
-
-3. **Hugging Face Token** `REQUIRED` — Used for speaker diarization ("who's talking") via pyannote, plus downloading [faster-whisper large-v3](https://huggingface.co/Systran/faster-whisper-large-v3) for transcription. You must accept the license on **all three** gated pyannote model pages before your token will work:
+1. Set up an account
+2. Get your key
+3. Accept these models:
    - [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1)
    - [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)
    - [pyannote/embedding](https://huggingface.co/pyannote/embedding)
 
-4. **Claude API Key** `OPTIONAL` — An [Anthropic API](https://console.anthropic.com) key. This is only needed if you want post-transcription summaries (title, topics, action items, etc.).
+### CLAUDE API KEY
 
-All keys are stored in a local `.env` file (the app manages this via the wizard/settings, or set them manually). The app automatically syncs your HF token to a Modal secret so the remote GPU function can access the gated models.
+- Must use developer platform
+- This is also charge by use, cheap
+- Optional. You can skip summarization
 
-## How It Works
+## Future Features
 
-1. Drop audio files into the inbox (via the app or the folder directly)
-2. Files are uploaded to a Modal GPU function running faster-whisper (large-v3) for transcription and pyannote for speaker diarization
-3. Speaker embeddings are compared against a persistent voice repo — known speakers get labeled by name, unknown ones get `SPEAKER_00` etc.
-4. The transcript JSON is saved to the outbox, then sent to Claude for a structured summary (title, topics, action items, etc.)
-5. Unknown speakers can be enrolled via the CLI (`--enroll`) or the app's Speakers tab, so they're recognized in future recordings
-
-## CLI Usage
-
-```bash
-cd src/scripts
-
-# Transcribe files
-python transcribe.py recording.m4a
-
-# Transcribe a folder
-python transcribe.py --folder ~/recordings
-
-# Enroll unknown speakers from a transcript
-python transcribe.py --enroll outbox/recording_20250101_120000/recording.json
-
-# List enrolled speakers
-python transcribe.py --list-speakers
-
-# Re-summarize a transcript
-python transcribe.py --summarize path/to/transcript.json
-
-# Skip summary
-python transcribe.py --no-summary recording.m4a
-```
-
-## Project Structure
-
-```
-src/
-  pipeline/     Python backend — Modal transcription, diarization, summarization
-  app/          Electron desktop app (React + Tailwind)
-```
+- Run the transcription on your local machine
+- Smart Speaker Detection
+- Audio File Tagging for Organization (Tag by meeting)
+- Ask an agent about your transcriptions (“Tell me about the daily status update meetings over the last week”)
