@@ -47,7 +47,9 @@ function createWindow() {
 
 app.whenReady().then(() => {
   if (process.platform === 'darwin') {
-    app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
+    // Electron types dock as possibly undefined regardless of platform, and TS
+    // cannot narrow it from the process.platform check above.
+    app.dock?.setIcon(join(__dirname, '../../resources/icon.png'))
   }
   migrateFromRepoRoot()
   ensureDataDirs()

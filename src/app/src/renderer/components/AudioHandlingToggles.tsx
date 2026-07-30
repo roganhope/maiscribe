@@ -1,5 +1,5 @@
 import type { AudioHandling } from '../../shared/types'
-import { toAudioHandling, isStoring, isDeleting } from '../../shared/audioHandling'
+import { toAudioHandling, isStoring, isDeleting, describeAudioHandling } from '../../shared/audioHandling'
 import { Toggle } from './Toggle'
 
 interface Props {
@@ -39,27 +39,8 @@ export function AudioHandlingToggles({ value, onChange, compact }: Props) {
         danger
       />
       <p className={`${compact ? 'text-[11px]' : 'text-xs'} text-gray-500`}>
-        {describe(value)}
+        {describeAudioHandling(value)}
       </p>
     </div>
   )
-}
-
-/**
- * Spell out the combination in plain language.
- *
- * Two switches make four outcomes, and "both off" versus "both on" are opposite
- * in consequence while looking equally neutral. One sentence removes the guess.
- */
-export function describe(value: AudioHandling): string {
-  switch (value) {
-    case 'store':
-      return 'Your file stays where it is, and a copy is kept in maiscribe.'
-    case 'store-and-delete':
-      return 'Your file is moved into maiscribe — it will no longer be in its original location.'
-    case 'delete':
-      return 'Your file is deleted after transcription. Only the transcript is kept.'
-    case 'leave':
-      return 'Your file is left untouched. maiscribe keeps only the transcript.'
-  }
 }

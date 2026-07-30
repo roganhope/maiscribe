@@ -33,3 +33,22 @@ export function isDeleting(value: AudioHandling): boolean {
 export function keepsAudioInApp(value: AudioHandling): boolean {
   return isStoring(value)
 }
+
+/**
+ * Spell out the combination in plain language.
+ *
+ * Two switches make four outcomes, and "both off" versus "both on" look equally
+ * neutral while being opposite in consequence. One sentence removes the guess.
+ */
+export function describeAudioHandling(value: AudioHandling): string {
+  switch (value) {
+    case 'store':
+      return 'Your file stays where it is, and a copy is kept in maiscribe.'
+    case 'store-and-delete':
+      return 'Your file is moved into maiscribe — it will no longer be in its original location.'
+    case 'delete':
+      return 'Your file is deleted after transcription. Only the transcript is kept.'
+    case 'leave':
+      return 'Your file is left untouched. maiscribe keeps only the transcript.'
+  }
+}

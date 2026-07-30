@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import type { AudioHandling } from './types'
-import { toAudioHandling, isStoring, isDeleting, keepsAudioInApp } from './audioHandling'
-import { describe as describeHandling } from '../renderer/components/AudioHandlingToggles'
+import {
+  toAudioHandling,
+  isStoring,
+  isDeleting,
+  keepsAudioInApp,
+  describeAudioHandling,
+} from './audioHandling'
 
 describe('toAudioHandling', () => {
   it('maps all four combinations', () => {
@@ -64,19 +69,19 @@ describe('describe', () => {
 
   it('covers every value', () => {
     for (const value of cases) {
-      expect(describeHandling(value)).toBeTruthy()
+      expect(describeAudioHandling(value)).toBeTruthy()
     }
   })
 
   it('only promises deletion when something is actually deleted', () => {
     for (const value of cases) {
-      const mentionsDeletion = /delet|moved/.test(describeHandling(value))
+      const mentionsDeletion = /delet|moved/.test(describeAudioHandling(value))
       expect(mentionsDeletion).toBe(isDeleting(value))
     }
   })
 
   it('says the file is untouched only when it is', () => {
-    expect(describeHandling('leave')).toMatch(/untouched/)
-    expect(describeHandling('delete')).not.toMatch(/untouched/)
+    expect(describeAudioHandling('leave')).toMatch(/untouched/)
+    expect(describeAudioHandling('delete')).not.toMatch(/untouched/)
   })
 })

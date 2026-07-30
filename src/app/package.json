@@ -10,7 +10,8 @@
     "preview": "electron-vite preview",
     "test": "vitest run",
     "dist": "electron-vite build && electron-builder --mac",
-    "dist:dir": "electron-vite build && electron-builder --mac --dir"
+    "dist:dir": "electron-vite build && electron-builder --mac --dir",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
   },
   "build": {
     "appId": "com.maiscribe.app",
@@ -26,7 +27,11 @@
       {
         "from": "../scripts",
         "to": "scripts",
-        "filter": ["**/*.py", "requirements.txt", "models.json"]
+        "filter": [
+          "**/*.py",
+          "requirements.txt",
+          "models.json"
+        ]
       }
     ],
     "mac": {
