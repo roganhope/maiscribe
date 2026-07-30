@@ -6,6 +6,11 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.1.0--beta-orange" alt="version 0.1.0-beta" />
+  <img src="https://img.shields.io/github/license/roganhope/maiscribe" alt="license" />
+  <img src="https://img.shields.io/badge/platform-macOS-lightgrey" alt="platform macOS" />
+  <img src="https://img.shields.io/badge/Modal-blue" alt="Modal" />
+  <img src="https://img.shields.io/badge/Hugging%20Face-yellow" alt="Hugging Face" />
+  <img src="https://img.shields.io/badge/Claude-orange" alt="Claude" />
 </p>
 
 ## Mission statement
