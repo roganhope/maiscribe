@@ -6,14 +6,14 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.1.0--beta-orange" alt="version 0.1.0-beta" />
-  <img src="https://img.shields.io/github/license/roganhope/maiscribe" alt="license" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="license MIT" />
   <img src="https://img.shields.io/badge/platform-macOS-lightgrey" alt="platform macOS" />
   <img src="https://img.shields.io/badge/Modal-blue" alt="Modal" />
   <img src="https://img.shields.io/badge/Hugging%20Face-yellow" alt="Hugging Face" />
   <img src="https://img.shields.io/badge/Claude-orange" alt="Claude" />
 </p>
 
-## Mission statement
+## Mission Statement
 
 I don’t want to pay for audio transcription, and I like my privacy. My laptop wasn’t powerful enough to run the models locally, though, so I built this app to get a bit of both.
 
@@ -39,13 +39,15 @@ bun install
 bun run dev
 ```
 
+> [!IMPORTANT]
+> **First-time Modal setup takes up to 20 minutes. This is expected.**
+> Once you finish the setup wizard, maiscribe builds the GPU image on Modal and downloads the whisper and pyannote model weights into your workspace. The progress bar can sit on the image build step for a long while with nothing appearing to happen — leave it running. This happens once; every transcription after it starts in seconds.
+
 ## How it works
 
 1. I set this up with Modal, a serverless cloud platform with a free tier — I’ll eventually add a version that runs on your local machine too. Modal doesn’t use your data right now and is technically secure, but your audio does leave your machine.
 2. You accept the Hugging Face models that power the app, and Maiscribe handles the rest of the install for you.
 3. You can set up a Claude API key if you want summarization, though this part isn’t secure.
-
-## SCREENSHOTS HERE
 
 ## Setup instructions
 
