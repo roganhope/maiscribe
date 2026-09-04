@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { SpeakerClip } from '../../shared/types'
+import { claimPlayback, releasePlayback } from '../utils/audioPlayback'
 
 interface Props {
   clips: SpeakerClip[]
@@ -9,15 +10,23 @@ export function SpeakerClipPlayer({ clips }: Props) {
   const [playing, setPlaying] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
+  // A detached <audio> keeps playing, so stop on unmount (tab switch).
+  useEffect(() => {
+    const audio = audioRef.current
+    return () => { if (audio) releasePlayback(audio) }
+  }, [])
+
   function handlePlay(clip: SpeakerClip) {
     if (!audioRef.current) return
+    const audio = audioRef.current
     if (playing === clip.filePath) {
-      audioRef.current.pause()
-      audioRef.current.currentTime = 0
+      releasePlayback(audio)
+      audio.currentTime = 0
       setPlaying(null)
       return
     }
-    const audio = audioRef.current
+    // Claim before loading: any other clip or recording stops here.
+    claimPlayback(audio, () => setPlaying(null))
     audio.onended = () => setPlaying(null)
     audio.onerror = (e) => { console.error('[clip-player] error', e); setPlaying(null) }
     audio.src = 'local-audio://host' + clip.filePath.split('/').map(s => encodeURIComponent(s)).join('/')

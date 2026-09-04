@@ -6,6 +6,7 @@ import { TranscriptView } from './TranscriptView'
 import { SpeakerSubmodule } from './SpeakerSubmodule'
 import { CopyButton } from './CopyButton'
 import { summaryToText, transcriptToText } from '../utils/copyText'
+import { stopAllPlayback } from '../utils/audioPlayback'
 
 interface Props {
   recording: RecordingDetailType
@@ -31,6 +32,7 @@ export function RecordingDetail({ recording, onUpdateTitle, onDelete }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
+    stopAllPlayback()
     setTitleDraft(recording.title)
     setEditingTitle(false)
     setShowTranscript(false)
