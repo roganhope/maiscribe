@@ -14,9 +14,11 @@ export function SummaryView({ sections }: Props) {
     <div className="flex flex-col gap-6">
       {sections.map((section, i) => (
         <div key={i}>
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">
-            {section.title}
-          </h3>
+          {section.type !== 'tldr' && (
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">
+              {section.title}
+            </h3>
+          )}
           {section.type === 'tldr' && (
             <p className="text-gray-200 text-sm leading-relaxed">{section.content}</p>
           )}
