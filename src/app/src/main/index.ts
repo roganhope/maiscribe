@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, dialog, protocol } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, dialog, protocol, clipboard } from 'electron'
 import { join } from 'path'
 
 protocol.registerSchemesAsPrivileged([
@@ -70,6 +70,12 @@ app.whenReady().then(() => {
 
   ipcMain.on('shell:openExternal', (_event, url: string) => {
     shell.openExternal(url)
+  })
+
+  // The preload runs sandboxed, so the renderer cannot reach Electron's
+  // clipboard module directly.
+  ipcMain.on('clipboard:writeText', (_event, text: string) => {
+    clipboard.writeText(text)
   })
 
   ipcMain.handle('dialog:selectDirectory', async () => {

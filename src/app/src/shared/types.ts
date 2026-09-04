@@ -178,6 +178,9 @@ export interface ElectronAPI {
     openPath: (path: string) => void
     openExternal: (url: string) => void
   }
+  clipboard: {
+    writeText: (text: string) => void
+  }
   dialog: {
     selectDirectory: () => Promise<string | null>
     selectFiles: () => Promise<string[]>

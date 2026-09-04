@@ -4,6 +4,9 @@ import { AudioPlayer } from './AudioPlayer'
 import { SummaryView } from './SummaryView'
 import { TranscriptView } from './TranscriptView'
 import { SpeakerSubmodule } from './SpeakerSubmodule'
+import { CopyButton } from './CopyButton'
+import { summaryToText, transcriptToText } from '../utils/copyText'
+import { stopAllPlayback } from '../utils/audioPlayback'
 
 interface Props {
   recording: RecordingDetailType
@@ -29,6 +32,7 @@ export function RecordingDetail({ recording, onUpdateTitle, onDelete }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
+    stopAllPlayback()
     setTitleDraft(recording.title)
     setEditingTitle(false)
     setShowTranscript(false)
@@ -113,20 +117,38 @@ export function RecordingDetail({ recording, onUpdateTitle, onDelete }: Props) {
 
       {recording.summary.sections.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Summary</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Summary</h2>
+            <CopyButton
+              label="Copy summary"
+              getText={() => summaryToText(recording.summary.sections)}
+            />
+          </div>
           <SummaryView sections={recording.summary.sections} />
         </section>
       )}
 
       {recording.transcription.segments.length > 0 && (
         <section>
-          <button
-            onClick={() => setShowTranscript(!showTranscript)}
-            className="flex items-center gap-2 text-sm font-semibold text-gray-400 uppercase tracking-wide hover:text-gray-300"
-          >
-            <span className={`transition-transform ${showTranscript ? 'rotate-90' : ''}`}>&#9654;</span>
-            Transcript
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowTranscript(!showTranscript)}
+              className="flex items-center gap-2 text-sm font-semibold text-gray-400 uppercase tracking-wide hover:text-gray-300"
+            >
+              <span className={`transition-transform ${showTranscript ? 'rotate-90' : ''}`}>&#9654;</span>
+              Transcript
+            </button>
+            <CopyButton
+              label="Copy transcript"
+              getText={() =>
+                transcriptToText(
+                  recording.transcription.segments,
+                  recording.transcription.speakerMap,
+                  speakerNames,
+                )
+              }
+            />
+          </div>
           {showTranscript && (
             <div className="mt-4">
               <TranscriptView
